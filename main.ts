@@ -1,9 +1,142 @@
-import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
+import { Plugin, App, WorkspaceLeaf, Notice, Modal } from 'obsidian';
 import { getAPI } from 'obsidian-dataview';
+import * as PIXI from 'pixi.js';
+
+class ColorPickerModal extends Modal {
+    keyColorMap: Map<string | null, number>;
+    tableBody: HTMLElement;
+
+    constructor(app: App, keyColorMap: Map<string | null, number>) {
+        super(app);
+        this.keyColorMap = keyColorMap;
+    }
+
+    onOpen() {
+        const {contentEl} = this;
+        contentEl.createEl('h2', {text: 'Key Colors'});
+
+        // Add CSS styles
+        const styleEl = contentEl.createEl('style', {text: `
+            .color-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .color-table th, .color-table td {
+                border: 1px solid #ccc;
+                padding: 8px;
+                text-align: left;
+            }
+            .color-table th {
+                background-color: #f2f2f2;
+            }
+            .color-table tr:hover {
+                background-color: #ddd;
+            }
+            .color-preview {
+                width: 50px;
+                height: 20px;
+                border: 1px solid #ccc;
+                cursor: pointer;
+            }
+            .color-preview-box {
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                border: 1px solid #000;
+                margin-right: 5px;
+                vertical-align: middle;
+            }
+        `});
+
+        // Create table with styles
+        const table = contentEl.createEl('table', {cls: 'color-table'});
+        const thead = table.createEl('thead');
+        const headerRow = thead.createEl('tr');
+        headerRow.createEl('th', {text: 'Key'});
+        headerRow.createEl('th', {text: 'Color'});
+
+        const tbody = table.createEl('tbody');
+        this.tableBody = tbody;
+        this.refreshTable();
+    }
+
+    refreshTable() {
+        this.tableBody.empty();
+    
+        this.keyColorMap.forEach((color, key) => {
+            console.log(`Key: ${key}, Color: ${color}`); // Debug log
+    
+            const row = this.tableBody.createEl('tr');
+            row.createEl('td', {text: key});
+    
+            const colorCell = row.createEl('td');
+            const colorString = (typeof color === 'number') ? color.toString(16).padStart(6, '0') : color;
+            
+            // Ensure color is a hex string and set it as background color
+            let colorHex = (typeof color === 'number') ? color.toString(16).padStart(6, '0') : color;
+    
+            const colorPreviewBox = colorCell.createEl('div', {
+                cls: 'color-preview-box',
+            });
+
+            colorPreviewBox.style.backgroundColor = `#${colorHex}`;
+            
+            // Log the computed style of colorPreviewBox
+            console.log(colorPreviewBox.style.backgroundColor);
+            
+    
+            const colorText = colorCell.createEl('span', {
+                text: `#${colorString}`
+            });
+    
+            colorPreviewBox.addEventListener('click', () => {
+                this.openColorPicker(key);
+            });
+        });
+    }
+    
+
+    onClose() {
+        const {contentEl} = this;
+        contentEl.empty();
+    }
+
+    openColorPicker(key: string | null) {
+        const colorPickerModal = new Modal(this.app);
+        colorPickerModal.titleEl.setText("Select Color");
+    
+        const colorInput = colorPickerModal.contentEl.createEl('input', {
+            type: 'text',
+            value: "#ffffff"
+        });
+    
+        const submitButton = colorPickerModal.contentEl.createEl('button', {
+            text: 'Apply Color'
+        });
+    
+        submitButton.addEventListener('click', () => {
+            const newColor = colorInput.value;
+    
+            if (newColor && key) {
+                const colorInt = parseInt(newColor.replace('#', ''), 16);
+                this.keyColorMap.set(key, colorInt);
+                this.refreshTable();
+                colorPickerModal.close();
+            }
+        });
+    
+        colorPickerModal.open();
+    }
+    
+
+}
 
 export default class UniqueMetadataKeysPlugin extends Plugin {
     api = getAPI();
-    keyColorMap = new Map<string, number>();
+    keyColorMap = new Map<string | null, number>();
+    nodeTextMap = new Map(); // Store node-text pairs
+    selectedKey: string | null;
+    
 
     onload() {
         this.addCommand({
@@ -12,9 +145,18 @@ export default class UniqueMetadataKeysPlugin extends Plugin {
             callback: () => this.printUniqueMetadataKeys()
         });
         this.addCommand({
-            id: 'print-graph-leaf',
-            name: 'Print Graph Leaf',
-            callback: () => this.findGraphLeaf()
+            id: 'print-link-type',
+            name: 'Print Link Type',
+            callback: () =>  this.startUpdateLoop()
+        });
+
+        this.printUniqueMetadataKeys();
+
+        // Assume these are your keys
+        const keys = ['key1', 'key2', 'key3'];
+
+        this.addRibbonIcon('palette', 'Choose Colors', () => {
+            new ColorPickerModal(this.app, this.keyColorMap).open();
         });
     }
 
@@ -45,14 +187,12 @@ export default class UniqueMetadataKeysPlugin extends Plugin {
             this.keyColorMap.set(key, color);
         });
 
-        console.log('Unique Metadata Keys with Link Values:');
+        this.keyColorMap.set(null, 0);
         this.keyColorMap.forEach((color, key) => console.log(`${key}: ${color}`));
     }
+    
 
-    getColorForKey(key: string | null): number | undefined {
-        if (key === null) {
-            return 0;
-        }
+    getColorForKey(key: string | null): number | undefined{
         return this.keyColorMap.get(key);
     }
 
@@ -76,6 +216,20 @@ export default class UniqueMetadataKeysPlugin extends Plugin {
     }
 
     findGraphLeaf(): WorkspaceLeaf | null{
+        var t = [];
+        this.app.workspace.iterateAllLeaves(function(n) {
+            n.view && t.push(n.getDisplayText())
+        })
+        console.log(t);
+        var t = [];
+        this.app.workspace.iterateAllLeaves(function(n) {
+            n.view && t.push(n)
+        })
+        console.log(t);
+        console.log(this.app.workspace.getLeavesOfType())
+        viewType
+
+
         let graphLeaves = this.app.workspace.getLeavesOfType('graph');
 		if (graphLeaves.length != 1) {
 			if (graphLeaves.length < 1) {
@@ -85,23 +239,77 @@ export default class UniqueMetadataKeysPlugin extends Plugin {
 			}
 			return null;
 		}
-        const links = graphLeaves[0].view.renderer.links;
-        
-        for (let i = 0; i < 2; i++) {
-            const sourceId = links[i].source.id;
-            const targetId = links[i].target.id;
-            console.log(sourceId);
-            console.log(targetId);
-            const linkKey = this.getMetadataKeyForLink(sourceId, targetId);
-            const linkColor = this.getColorForKey(linkKey);
-            console.log(linkColor);
-            console.log(links[i].renderer);
-            links[i].line._tintRGB = linkColor;
-            links[i].renderer.colors.line.rgb = links[i].line._tintRGB;
-            
-        }
-
+        console.log(graphLeaves[0].view.renderer);
         
 		return graphLeaves[0]
     }
+
+    createTextForLink(renderer, link) {
+        const linkString = this.getMetadataKeyForLink(link.source.id, link.target.id);
+        if (linkString === null) return;
+        console.log(this.getColorForKey(linkString))
+        const textStyle = new PIXI.TextStyle({
+            fontFamily: 'Arial',
+            fontSize: 36,
+            fill: this.getColorForKey(linkString)
+        });
+        const text = new PIXI.Text(linkString, textStyle);
+        text.alpha = 0.7;
+        text.anchor.set(0.5, 0.5);
+        this.nodeTextMap.set(link, text);
+        this.updateTextPosition(renderer, link);
+        renderer.px.stage.addChild(text);
+    }
+    
+    
+    updateTextPosition(renderer, link) {
+        const text = this.nodeTextMap.get(link);
+        if (text) {
+            const midX = (link.source.x + link.target.x) / 2;
+            const midY = (link.source.y + link.target.y) / 2;
+            const { x, y } = this.getLinkToTextCoordinates(midX, midY, renderer.panX, renderer.panY, renderer.scale);
+            text.x = x;
+            text.y = y;
+            text.scale.set(1/(3*renderer.nodeScale));
+        }
+    }
+    
+    startUpdateLoop() {
+        const graphLeaf = this.findGraphLeaf();
+        if (graphLeaf === null) {
+            console.log("Graph leaf not found.");
+            return;
+        }
+        const renderer = graphLeaf.view.renderer;
+        const links = renderer.links;
+        links.forEach(link => this.createTextForLink(renderer, link));
+        requestAnimationFrame(this.updatePositions.bind(this));
+    }
+    
+    updatePositions() {
+        const graphLeaf = this.findGraphLeaf();
+        if (graphLeaf === null) {
+            console.log("Graph leaf not found.");
+            return;
+        }
+        const renderer = graphLeaf.view.renderer;
+        const links = renderer.links;
+        links.forEach(link => {
+            this.updateTextPosition(renderer, link);
+        });
+        requestAnimationFrame(this.updatePositions.bind(this));
+    }
+    
+    getLinkToTextCoordinates(nodeX, nodeY, panX, panY, scale) {
+        // Apply scaling - assuming node coordinates are scaled
+        let scaledX = nodeX * scale;
+        let scaledY = nodeY * scale;
+    
+        // Apply panning - assuming the entire scene is panned
+        let pannedX = scaledX + panX;
+        let pannedY = scaledY + panY;
+    
+        return { x: pannedX, y: pannedY };
+    }
+    
 }
