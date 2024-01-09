@@ -19,5 +19,6 @@ Stay updated with our progress and future plans by checking our [Milestone Goals
 
 ## Support the Project
 If you enjoy using GraphLinkTypes and want to support its development, consider [buying me a coffee](https://www.buymeacoffee.com/natefrisch)! Your support helps in maintaining the project and exploring new ideas in community-driven coding.
+
 <img src="https://github.com/natefrisch01/Graph-Link-Types/assets/44580969/b0b78ff4-c3a6-4614-8a35-efc3d475d8bf)https://github.com/natefrisch01/Graph-Link-Types/assets/44580969/b0b78ff4-c3a6-4614-8a35-efc3d475d8bf" alt="drawing" width="100"/>
 
