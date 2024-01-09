@@ -60,11 +60,14 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
     // Find the graph view leaf in the workspace
     findGraphLeaf(): WorkspaceLeaf | null {
-        const graphLeaves: WorkspaceLeaf[] = this.app.workspace.getLeavesOfType('graph');
-        // Ensure there is exactly one graph leaf open
-        return graphLeaves.length === 1 ? graphLeaves[0] : null;
+        let graphLeaves: WorkspaceLeaf[] = this.app.workspace.getLeavesOfType('graph');
+        if (graphLeaves.length == 0) {
+            graphLeaves = this.app.workspace.getLeavesOfType('localgraph');
+        }
+		// Ensure there is exactly one graph leaf open
+        return graphLeaves.length > 0 ? graphLeaves[0] : null;
     }
-
+	
     // Create or update text for a given link
     createTextForLink(renderer: any, link: any): void {
         // Get the text to display for the link
