@@ -117,7 +117,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
             }, checkInterval);
         });
     }
-
+	
     // Create or update text for a given link
     createTextForLink(renderer: CustomRenderer, link: CustomLink): void {
         // Get the text to display for the link
