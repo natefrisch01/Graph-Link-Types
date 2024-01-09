@@ -5,8 +5,7 @@ import * as PIXI from 'pixi.js';
 export default class GraphLinkTypesPlugin extends Plugin {
     api = getAPI();
     uniqueKeys = new Set<string>();
-    nodeTextMap = new Map(); // Store node-text pairs
-    selectedKey: string | null;
+    nodeTextMap = new Map(); // Store link-text pairs
     
     
 
@@ -88,6 +87,15 @@ export default class GraphLinkTypesPlugin extends Plugin {
     createTextForLink(renderer, link) {
         const linkString = this.getMetadataKeyForLink(link.source.id, link.target.id);
         if (linkString === null) return;
+
+        // Check if text already exists for the link and remove it
+        if (this.nodeTextMap.has(link)) {
+            const existingText = this.nodeTextMap.get(link);
+            renderer.px.stage.removeChild(existingText);
+            existingText.destroy();
+        }
+
+        // Create new text for the link
         const textStyle = new PIXI.TextStyle({
             fontFamily: 'Arial',
             fontSize: 36,
@@ -96,9 +104,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         const text = new PIXI.Text(linkString, textStyle);
         text.alpha = 0.7;
         text.anchor.set(0.5, 0.5);
-        if (!this.nodeTextMap.has(link)) {
-            this.nodeTextMap.set(link, text);
-        }
+        this.nodeTextMap.set(link, text);
         
         this.updateTextPosition(renderer, link);
         renderer.px.stage.addChild(text);
@@ -107,22 +113,23 @@ export default class GraphLinkTypesPlugin extends Plugin {
     
     updateTextPosition(renderer, link) {
         const text = this.nodeTextMap.get(link);
-        if (text) {
-            const midX = (link.source.x + link.target.x) / 2;
-            const midY = (link.source.y + link.target.y) / 2;
-            const { x, y } = this.getLinkToTextCoordinates(midX, midY, renderer.panX, renderer.panY, renderer.scale);
-            text.x = x;
-            text.y = y;
-            text.scale.set(1/(3*renderer.nodeScale));
+        if (!text || !link.source || !link.target) {
+            return;
         }
+        const midX = (link.source.x + link.target.x) / 2;
+        const midY = (link.source.y + link.target.y) / 2;
+        const { x, y } = this.getLinkToTextCoordinates(midX, midY, renderer.panX, renderer.panY, renderer.scale);
+        text.x = x;
+        text.y = y;
+        text.scale.set(1/(3*renderer.nodeScale));
     }
 
-    destroyMap() {
+    destroyMap(renderer) {
         if (this.nodeTextMap.size > 0) {
             this.nodeTextMap.forEach((text, link) => {
-                if (text !== null) {
-                    renderer.px.stage.removeChild(text); // Remove the text from the PIXI container
-                    text.destroy();         // Destroy the text object
+                if (text && renderer.px.stage.children.includes(text)) {
+                    renderer.px.stage.removeChild(text); // Remove the text from the PIXI container only if it exists
+                    text.destroy(); // Destroy the text object
                 }
                 this.nodeTextMap.delete(link);
             });
@@ -138,7 +145,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
             return;
         }
         const renderer = graphLeaf.view.renderer;
-        // this.destroyMap();
+        this.destroyMap(renderer);
         const links = renderer.links;
         links.forEach(link => this.createTextForLink(renderer, link));
         requestAnimationFrame(this.updatePositions.bind(this));
@@ -150,13 +157,18 @@ export default class GraphLinkTypesPlugin extends Plugin {
             return;
         }
         const renderer = graphLeaf.view.renderer;
-        this.nodeTextMap.forEach((text, link) => {
+        
+        renderer.links.forEach(link => {
+            if (!this.nodeTextMap.has(link)) {
+                this.createTextForLink(renderer, link);
+            }
             this.updateTextPosition(renderer, link);
         });
+
         requestAnimationFrame(this.updatePositions.bind(this));
     }
     
-    getLinkToTextCoordinates(linkX, linkY, panX, panY, scale) {
+    getLinkToTextCoordinates(linkX: number, linkY: number, panX: number, panY: number, scale: number) {
         return { x: linkX * scale + panX, y: linkY * scale + panY };
     }
 }
