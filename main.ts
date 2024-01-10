@@ -100,7 +100,6 @@ export default class GraphLinkTypesPlugin extends Plugin {
             return;
         }
         console.log("Renderer Found");
-        console.log("It is a new renderer.")
         this.currentRenderer = newRenderer;
         this.startUpdateLoop();
     }
@@ -177,7 +176,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         console.log("Destroying Map");
         if (this.nodeTextMap.size > 0) {
             this.nodeTextMap.forEach((text, link) => {
-                if (text && renderer.px.stage.children.includes(text)) {
+                if (text && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(text)) {
                     renderer.px.stage.removeChild(text);
                     text.destroy();
                 }
@@ -216,7 +215,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         let updateMap = false;
         let rendererLinks: Set<CustomLink>;
 
-        if (this.animationFrameId && this.animationFrameId % 120 == 0) {
+        if (this.animationFrameId && this.animationFrameId % 20 == 0) {
             updateMap = true;
             rendererLinks = new Set();
         }
@@ -240,7 +239,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         if (updateMap) {
             this.nodeTextMap.forEach((text, link : CustomLink) => {
                 if (!rendererLinks.has(link)) {
-                    if (text && renderer.px.stage.children.includes(text)) {
+                    if (text && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(text)) {
                         renderer.px.stage.removeChild(text);
                         text.destroy();
                     }
@@ -294,7 +293,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         // This is a basic check. You might need to adjust the logic based on the themes you support.
         // Here, we assume that dark themes have a background color with a low brightness value.
         let textColor = '#FF0000';
-        if (style && style.backgroundColor) {
+        if (style && style.backgroundColor && style.backgroundColor) {
             const isDarkTheme = style.backgroundColor.match(/\d+/g)?.map(Number).slice(0, 3).reduce((a, b) => a + b, 0) < 382.5;
             isDarkTheme ? textColor = '#FFFFFF' : textColor = '#000000'; // White text for dark themes, black for light themes)
         }
