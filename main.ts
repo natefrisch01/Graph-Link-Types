@@ -80,7 +80,6 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
     
     async handleLayoutChange() {
-        console.log("layout-change");
         // Cancel the animation frame on layout change
         if (this.animationFrameId !== null) {
             cancelAnimationFrame(this.animationFrameId);
@@ -88,17 +87,14 @@ export default class GraphLinkTypesPlugin extends Plugin {
         }
         await this.waitForRenderer();
         this.checkAndUpdateRenderer();
-        console.log(this.currentRenderer);
     }
 
     checkAndUpdateRenderer() {
         const newRenderer = this.findRenderer();
         if (!newRenderer) {
-            console.log("No Renderer Found");
             this.currentRenderer = null;
             return;
         }
-        console.log("Renderer Found");
         this.currentRenderer = newRenderer;
         this.startUpdateLoop();
     }
@@ -126,14 +122,12 @@ export default class GraphLinkTypesPlugin extends Plugin {
         if (linkString === null) return; //doesn't add if link is null
         
         // Mutual pairs, links that both reference each other
-        console.log(link.source.id, link.target.id);
         if (link.source.id === link.target.id) {
             linkString = "";
         } else if (reverseString === null) {
             const reverseLink : CustomLink | undefined = renderer.links.find(linkFromLoop => linkFromLoop.source.id === link.target.id && linkFromLoop.target.id === link.source.id);
             
             if (reverseLink) {
-                console.log(reverseLink);
                 this.createTextForLink(renderer, reverseLink, linkString);
                 linkString = "";
             }
@@ -188,7 +182,6 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
     // Remove all text nodes from the graph
     destroyMap(renderer: CustomRenderer): void {
-        console.log("Destroying Map");
         if (this.nodeTextMap.size > 0) {
             this.nodeTextMap.forEach((text, link) => {
                 if (text && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(text)) {
