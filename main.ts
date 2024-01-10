@@ -35,9 +35,8 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 
     // Get the metadata key for a link between two pages
-    getMetadataKeyForLink(link : CustomLink): string | null {
-        const sourceId : string = link.source.id;
-        const targetId : string = link.target.id;
+    getMetadataKeyForLink(sourceId : string, targetId : string): string | null {
+
         // Retrieve the source page
         const sourcePage: Page | undefined = this.api.page(sourceId);
         if (!sourcePage) return null;
@@ -120,13 +119,29 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 	
     // Create or update text for a given link
-    createTextForLink(renderer: CustomRenderer, link: CustomLink): void {
+    createTextForLink(renderer: CustomRenderer, link: CustomLink, reverseString : string | null = null): void {
 
         // Get the text to display for the link
-        const linkString: string | null = this.getMetadataKeyForLink(link);
+        let linkString: string | null = this.getMetadataKeyForLink(link.source.id, link.target.id);
         if (linkString === null) return; //doesn't add if link is null
+        
+        // Mutual pairs, links that both reference each other
+        console.log(link.source.id, link.target.id);
+        if (link.source.id === link.target.id) {
+            linkString = "";
+        } else if (reverseString === null) {
+            const reverseLink : CustomLink | undefined = renderer.links.find(linkFromLoop => linkFromLoop.source.id === link.target.id && linkFromLoop.target.id === link.source.id);
+            
+            if (reverseLink) {
+                console.log(reverseLink);
+                this.createTextForLink(renderer, reverseLink, linkString);
+                linkString = "";
+            }
+        } else {
+            linkString = linkString + "\n" + reverseString;
+        }
 
-        // If text already exists for this link, remove it
+        // If text already exists for this link, remove text
         if (this.nodeTextMap.has(link)) {
             const existingText = this.nodeTextMap.get(link)!;
             renderer.px.stage.removeChild(existingText);
