@@ -125,9 +125,9 @@ export default class GraphLinkTypesPlugin extends Plugin {
         if (link.source.id === link.target.id) {
             linkString = "";
         } else if (reverseString === null) {
-            reverseString = this.getMetadataKeyForLink(link.target.id, link.source.id);
-            if (reverseString) {
-                const reverseLink : CustomLink = renderer.links.find(linkFromLoop => linkFromLoop.source.id === link.target.id && linkFromLoop.target.id === link.source.id);
+            const reverseLink : CustomLink | undefined = renderer.links.find(linkFromLoop => linkFromLoop.source.id === link.target.id && linkFromLoop.target.id === link.source.id);
+            
+            if (reverseLink) {
                 this.createTextForLink(renderer, reverseLink, linkString);
                 linkString = "";
             }
