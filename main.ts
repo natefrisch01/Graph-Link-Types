@@ -1,6 +1,7 @@
 import { Plugin, WorkspaceLeaf, Notice} from 'obsidian';
 import { getAPI, Page } from 'obsidian-dataview';
 import * as PIXI from 'pixi.js';
+import extractLinks from 'markdown-link-extractor';
 
 export default class GraphLinkTypesPlugin extends Plugin {
     // Retrieve the Dataview API
@@ -272,6 +273,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
                     break;
                 case LinkType.MarkdownLink:
                     if (this.extractPathFromMarkdownLink(value) === targetId) {
+                        console.log(targetId);
                         return key;
                     }
                     break;
@@ -281,6 +283,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
                             return key;
                         }
                         if (this.determineLinkType(item) === LinkType.MarkdownLink && this.extractPathFromMarkdownLink(item) === targetId) {
+                            console.log(targetId);
                             return key;
                         }
                     }
@@ -293,9 +296,12 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
     // Utility function to extract the file path from a Markdown link
     private extractPathFromMarkdownLink(markdownLink: string): string {
-        const match = markdownLink.match(/\[.*\]\((.*?)\)/);
-        return match ? match[1] : '';
+        const links = extractLinks(markdownLink).links;
+        console.log(links[0]);
+        // The package returns an array of links. Assuming you want the first link.
+        return links.length > 0 ? links[0] : '';
     }
+
 
     // Utility function to check if a value is a Markdown link
     isMarkdownLink(value: any, targetId: string): boolean {
