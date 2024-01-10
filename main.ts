@@ -34,31 +34,6 @@ export default class GraphLinkTypesPlugin extends Plugin {
         });
     }
 
-    // Get the metadata key for a link between two pages
-    getMetadataKeyForLink(sourceId : string, targetId : string): string | null {
-
-        // Retrieve the source page
-        const sourcePage: Page | undefined = this.api.page(sourceId);
-        if (!sourcePage) return null;
-
-        // Loop through the properties of the source page
-        for (const [key, value] of Object.entries(sourcePage)) {
-            // Check if the value is a link and matches the targetId
-            if (this.isDataviewLink(value) && value.path === targetId) {
-                return key;
-            }
-            // Check if the value is an array of links and find a match
-            if (Array.isArray(value)) {
-                for (const linkDataView of value) {
-                    if (this.isDataviewLink(linkDataView) && linkDataView.path === targetId) {
-                        return key;
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
     // Find the first valid graph renderer in the workspace
     findRenderer(): CustomRenderer | null {
         let graphLeaves = this.app.workspace.getLeavesOfType('graph');
@@ -266,6 +241,71 @@ export default class GraphLinkTypesPlugin extends Plugin {
         return { x: linkX * scale + panX, y: linkY * scale + panY };
     }
 
+    // Method to determine the type of a value, now a class method
+    private determineLinkType(value: any): LinkType {
+        if (typeof value === 'object' && value !== null && 'path' in value) {
+            return LinkType.DataviewLink;
+        } else if (typeof value === 'string' && value.includes('](')) {
+            return LinkType.MarkdownLink;
+        } else if (typeof value === 'string') {
+            return LinkType.String;
+        } else if (Array.isArray(value)) {
+            return LinkType.Array;
+        } else {
+            return LinkType.Other;
+        }
+    }
+
+    // Get the metadata key for a link between two pages
+    getMetadataKeyForLink(sourceId: string, targetId: string): string | null {
+        const sourcePage: Page | undefined = this.api.page(sourceId);
+        if (!sourcePage) return null;
+
+        for (const [key, value] of Object.entries(sourcePage)) {
+            const valueType = this.determineLinkType(value);
+
+            switch (valueType) {
+                case LinkType.DataviewLink:
+                    if (value.path === targetId) {
+                        return key;
+                    }
+                    break;
+                case LinkType.MarkdownLink:
+                    if (this.extractPathFromMarkdownLink(value) === targetId) {
+                        return key;
+                    }
+                    break;
+                case LinkType.Array:
+                    for (const item of value) {
+                        if (this.determineLinkType(item) === LinkType.DataviewLink && item.path === targetId) {
+                            return key;
+                        }
+                        if (this.determineLinkType(item) === LinkType.MarkdownLink && this.extractPathFromMarkdownLink(item) === targetId) {
+                            return key;
+                        }
+                    }
+                    break;
+                // Handle other cases as needed
+            }
+        }
+        return null;
+    }
+
+    // Utility function to extract the file path from a Markdown link
+    private extractPathFromMarkdownLink(markdownLink: string): string {
+        const match = markdownLink.match(/\[.*\]\((.*?)\)/);
+        return match ? match[1] : '';
+    }
+
+    // Utility function to check if a value is a Markdown link
+    isMarkdownLink(value: any, targetId: string): boolean {
+        if (typeof value === 'string') {
+            const path = this.extractPathFromMarkdownLink(value);
+            return path === targetId;
+        }
+        return false;
+    }
+
     // Utility function to check if a value is a link
     isDataviewLink(value: any): boolean {
         return typeof value === 'object' && value.hasOwnProperty('path');
@@ -340,3 +380,13 @@ interface CustomLink {
         y: number;
     };
 }
+
+// Define the enum outside the class
+enum LinkType {
+    DataviewLink,
+    MarkdownLink,
+    String,
+    Array,
+    Other
+}
+
