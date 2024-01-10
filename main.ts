@@ -163,7 +163,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         const midY: number = (link.source.y + link.target.y) / 2;
         // Transform the mid-point coordinates based on the renderer's pan and scale
         const { x, y } = this.getLinkToTextCoordinates(midX, midY, renderer.panX, renderer.panY, renderer.scale);
-        if (text) {
+        if (text && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(text)) {
             // Set the position and scale of the text
             text.x = x;
             text.y = y;
