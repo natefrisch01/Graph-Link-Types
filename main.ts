@@ -6,7 +6,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
     // Retrieve the Dataview API
     api = getAPI();
     // A map to keep track of the text nodes created for each link
-    nodeTextMap: Map<string, PIXI.Text> = new Map();
+    nodeTextMap: Map<CustomLink, PIXI.Text> = new Map();
     currentRenderer: CustomRenderer | null = null;
     animationFrameId: number | null = null;
 
@@ -35,7 +35,9 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 
     // Get the metadata key for a link between two pages
-    getMetadataKeyForLink(sourceId: string, targetId: string): string | null {
+    getMetadataKeyForLink(link : CustomLink): string | null {
+        const sourceId : string = link.source.id;
+        const targetId : string = link.target.id;
         // Retrieve the source page
         const sourcePage: Page | undefined = this.api.page(sourceId);
         if (!sourcePage) return null;
@@ -48,8 +50,8 @@ export default class GraphLinkTypesPlugin extends Plugin {
             }
             // Check if the value is an array of links and find a match
             if (Array.isArray(value)) {
-                for (const link of value) {
-                    if (this.isDataviewLink(link) && link.path === targetId) {
+                for (const linkDataView of value) {
+                    if (this.isDataviewLink(linkDataView) && linkDataView.path === targetId) {
                         return key;
                     }
                 }
@@ -120,15 +122,14 @@ export default class GraphLinkTypesPlugin extends Plugin {
 	
     // Create or update text for a given link
     createTextForLink(renderer: CustomRenderer, link: CustomLink): void {
-        // Get the text to display for the link
-        const linkString: string | null = this.getMetadataKeyForLink(link.source.id, link.target.id);
-        if (linkString === null) return;
 
-        const linkKey: string = `${link.source.id}-${link.target.id}`;
+        // Get the text to display for the link
+        const linkString: string | null = this.getMetadataKeyForLink(link);
+        if (linkString === null) return; //doesn't add if link is null
 
         // If text already exists for this link, remove it
-        if (this.nodeTextMap.has(linkKey)) {
-            const existingText = this.nodeTextMap.get(linkKey)!;
+        if (this.nodeTextMap.has(link)) {
+            const existingText = this.nodeTextMap.get(link)!;
             renderer.px.stage.removeChild(existingText);
             existingText.destroy();
         }
@@ -144,7 +145,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         text.alpha = 0.7;
         text.anchor.set(0.5, 0.5);
         // Add the text node to the map and the renderer
-        this.nodeTextMap.set(linkKey, text);
+        this.nodeTextMap.set(link, text);
 
         this.updateTextPosition(renderer, link);
         renderer.px.stage.addChild(text);
@@ -156,8 +157,8 @@ export default class GraphLinkTypesPlugin extends Plugin {
             // If any of these are null, exit the function
             return;
         }
-        const linkKey: string = `${link.source.id}-${link.target.id}`;
-        const text: PIXI.Text | undefined = this.nodeTextMap.get(linkKey);
+ 
+        const text: PIXI.Text | undefined = this.nodeTextMap.get(link);
         // Calculate the mid-point of the link
         const midX: number = (link.source.x + link.target.x) / 2;
         const midY: number = (link.source.y + link.target.y) / 2;
@@ -175,12 +176,12 @@ export default class GraphLinkTypesPlugin extends Plugin {
     destroyMap(renderer: CustomRenderer): void {
         console.log("Destroying Map");
         if (this.nodeTextMap.size > 0) {
-            this.nodeTextMap.forEach((text, linkKey) => {
+            this.nodeTextMap.forEach((text, link) => {
                 if (text && renderer.px.stage.children.includes(text)) {
                     renderer.px.stage.removeChild(text);
                     text.destroy();
                 }
-                this.nodeTextMap.delete(linkKey);
+                this.nodeTextMap.delete(link);
             });
         }
     }
@@ -214,8 +215,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
         // For each link in the graph, update the position of its text.
         renderer.links.forEach((link: CustomLink) => {
-            const linkKey: string = `${link.source.id}-${link.target.id}`;
-            if (!this.nodeTextMap.has(linkKey)) {
+            if (!this.nodeTextMap.has(link)) {
                 this.createTextForLink(renderer, link);
             }
             this.updateTextPosition(renderer, link);
