@@ -62,7 +62,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
     // Find the first valid graph renderer in the workspace
     findRenderer(): CustomRenderer | null {
-        var graphLeaves = this.app.workspace.getLeavesOfType('graph');
+        let graphLeaves = this.app.workspace.getLeavesOfType('graph');
         for (const leaf of graphLeaves) {
             const renderer = leaf.view.renderer;
             if (this.isCustomRenderer(renderer)) {
@@ -207,19 +207,47 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
     // Function to continuously update the positions of text objects.
     updatePositions(): void {
+
         // Find the graph renderer in the workspace.
         if (!this.currentRenderer) {
             return;
         }
+
+        let updateMap = false;
+        let rendererLinks: Set<CustomLink>;
+
+        if (this.animationFrameId && this.animationFrameId % 120 == 0) {
+            updateMap = true;
+            rendererLinks = new Set();
+        }
+
         const renderer: CustomRenderer = this.currentRenderer;
 
         // For each link in the graph, update the position of its text.
         renderer.links.forEach((link: CustomLink) => {
-            if (!this.nodeTextMap.has(link)) {
-                this.createTextForLink(renderer, link);
+            if (updateMap) {
+                // Add text for new links.
+                if (!this.nodeTextMap.has(link)) {
+                    this.createTextForLink(renderer, link);
+                }
+                // Add all links to the set of links, so that we can check quickly when removing text.
+                rendererLinks.add(link);
             }
             this.updateTextPosition(renderer, link);
         });
+
+        // Remove text that should no longer be on stage.
+        if (updateMap) {
+            this.nodeTextMap.forEach((text, link : CustomLink) => {
+                if (!rendererLinks.has(link)) {
+                    if (text && renderer.px.stage.children.includes(text)) {
+                        renderer.px.stage.removeChild(text);
+                        text.destroy();
+                    }
+                    this.nodeTextMap.delete(link);
+                }
+            });
+        }
 
         // Continue updating positions in the next animation frame.
         this.animationFrameId = requestAnimationFrame(this.updatePositions.bind(this));
@@ -265,9 +293,13 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
         // This is a basic check. You might need to adjust the logic based on the themes you support.
         // Here, we assume that dark themes have a background color with a low brightness value.
-        const isDarkTheme = style.backgroundColor.match(/\d+/g)?.map(Number).slice(0, 3).reduce((a, b) => a + b, 0) < 382.5;
+        let textColor = '#FF0000';
+        if (style && style.backgroundColor) {
+            const isDarkTheme = style.backgroundColor.match(/\d+/g)?.map(Number).slice(0, 3).reduce((a, b) => a + b, 0) < 382.5;
+            isDarkTheme ? textColor = '#FFFFFF' : textColor = '#000000'; // White text for dark themes, black for light themes)
+        }
 
-        return isDarkTheme ? '#FFFFFF' : '#000000'; // White text for dark themes, black for light themes
+        return textColor
     }
 
 
