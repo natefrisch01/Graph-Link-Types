@@ -23,6 +23,16 @@ export default class GraphLinkTypesPlugin extends Plugin {
             this.handleLayoutChange();
         }));
 
+        this.registerEvent(this.app.metadataCache.on("dataview:index-ready", () => {
+            console.log("Index ready, drawing graph link types.");
+            this.handleLayoutChange();
+        }));
+
+        this.registerEvent(this.app.metadataCache.on("dataview:metadata-change", () => {
+            console.log("New metadata, drawing graph link types.");
+            this.handleLayoutChange();
+        }));
+
         // // Add a command to the command palette
         // this.addCommand({
         //     id: 'print-link-type',
