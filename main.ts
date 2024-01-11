@@ -1,5 +1,7 @@
 import { Plugin, WorkspaceLeaf, Notice} from 'obsidian';
 import { getAPI, Page } from 'obsidian-dataview';
+import { CustomRenderer, CustomLink, DataviewLinkType} from 'types';
+import { LinkManager } from 'linkManager';
 import * as PIXI from 'pixi.js';
 import extractLinks from 'markdown-link-extractor';
 
@@ -29,11 +31,72 @@ export default class GraphLinkTypesPlugin extends Plugin {
             id: 'print-link-type',
             name: 'Print Link Type',
             callback: () => {
-                this.checkAndUpdateRenderer();
-                this.startUpdateLoop(1);
+                this.toyLinks();
             }
         });
     }
+
+    toyLinks() {
+        // Example frames: Each frame is an array of links
+        const frames: CustomLink[][] = [
+            // Frame 1: Simple links, some will form pairs later
+            [
+            { source: { id: "A", x: 0, y: 0 }, target: { id: "B", x: 0, y: 0 } },
+            { source: { id: "C", x: 0, y: 0 }, target: { id: "D", x: 0, y: 0 } },
+            ],
+        
+            // Frame 2: Adding reverse links to form pairs and keeping existing links
+            [
+            { source: { id: "A", x: 0, y: 0 }, target: { id: "B", x: 0, y: 0 } }, // Existing link
+            { source: { id: "B", x: 0, y: 0 }, target: { id: "A", x: 0, y: 0 } }, // Forms a pair with Frame 1's A-B
+            { source: { id: "C", x: 0, y: 0 }, target: { id: "D", x: 0, y: 0 } }, // Existing link
+            { source: { id: "E", x: 0, y: 0 }, target: { id: "F", x: 0, y: 0 } }, // New link
+            ],
+        
+            // Frame 3: Keeping a pair, removing a single link, adding a new link
+            [
+            { source: { id: "A", x: 0, y: 0 }, target: { id: "B", x: 0, y: 0 } }, // Existing link
+            { source: { id: "B", x: 0, y: 0 }, target: { id: "A", x: 0, y: 0 } }, // Existing pair
+            { source: { id: "G", x: 0, y: 0 }, target: { id: "H", x: 0, y: 0 } }, // New link
+            ],
+        
+            // Frame 4:
+            [
+            { source: { id: "B", x: 0, y: 0 }, target: { id: "A", x: 0, y: 0 } },
+            { source: { id: "G", x: 0, y: 0 }, target: { id: "H", x: 0, y: 0 } }, // New link
+            ],
+        ];
+
+        const linkManager = new LinkManager();
+
+        frames.forEach((frame, frameIndex) => {
+            console.log(`Frame ${frameIndex + 1}:`);
+
+            // Update link manager with the current frame's links
+            linkManager.updateLinks(frame);
+
+            // Process links
+            frame.forEach(link => {
+                const key = linkManager.generateKey(link.source.id, link.target.id);
+                if (!linkManager.linksMap.has(key)) {
+                    linkManager.addLink(link);
+                }
+                const status = linkManager.getLinkStatus(key);
+
+                // Print link status
+                if (status === 'first') {
+                    console.log('first: ' + key);
+                } else if (status === 'second') {
+                    console.log('second: ' + key);
+                } else {
+                    console.log(key); // Not part of a pair
+                }
+            });
+        });
+
+    }
+
+
 
     // Find the first valid graph renderer in the workspace
     findRenderer(): CustomRenderer | null {
@@ -243,17 +306,17 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 
     // Method to determine the type of a value, now a class method
-    private determineLinkType(value: any): LinkType {
+    private determineDataviewLinkType(value: any): DataviewLinkType {
         if (typeof value === 'object' && value !== null && 'path' in value) {
-            return LinkType.DataviewLink;
+            return DataviewLinkType.WikiLink;
         } else if (typeof value === 'string' && value.includes('](')) {
-            return LinkType.MarkdownLink;
+            return DataviewLinkType.MarkdownLink;
         } else if (typeof value === 'string') {
-            return LinkType.String;
+            return DataviewLinkType.String;
         } else if (Array.isArray(value)) {
-            return LinkType.Array;
+            return DataviewLinkType.Array;
         } else {
-            return LinkType.Other;
+            return DataviewLinkType.Other;
         }
     }
 
@@ -263,27 +326,25 @@ export default class GraphLinkTypesPlugin extends Plugin {
         if (!sourcePage) return null;
 
         for (const [key, value] of Object.entries(sourcePage)) {
-            const valueType = this.determineLinkType(value);
+            const valueType = this.determineDataviewLinkType(value);
 
             switch (valueType) {
-                case LinkType.DataviewLink:
+                case DataviewLinkType.WikiLink:
                     if (value.path === targetId) {
                         return key;
                     }
                     break;
-                case LinkType.MarkdownLink:
+                case DataviewLinkType.MarkdownLink:
                     if (this.extractPathFromMarkdownLink(value) === targetId) {
-                        console.log(targetId);
                         return key;
                     }
                     break;
-                case LinkType.Array:
+                case DataviewLinkType.Array:
                     for (const item of value) {
-                        if (this.determineLinkType(item) === LinkType.DataviewLink && item.path === targetId) {
+                        if (this.determineDataviewLinkType(item) === DataviewLinkType.WikiLink && item.path === targetId) {
                             return key;
                         }
-                        if (this.determineLinkType(item) === LinkType.MarkdownLink && this.extractPathFromMarkdownLink(item) === targetId) {
-                            console.log(targetId);
+                        if (this.determineDataviewLinkType(item) === DataviewLinkType.MarkdownLink && this.extractPathFromMarkdownLink(item) === targetId) {
                             return key;
                         }
                     }
@@ -295,9 +356,8 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 
     // Utility function to extract the file path from a Markdown link
-    private extractPathFromMarkdownLink(markdownLink: string): string {
+    private extractPathFromMarkdownLink(markdownLink: string | unknown): string {
         const links = extractLinks(markdownLink).links;
-        console.log(links[0]);
         // The package returns an array of links. Assuming you want the first link.
         return links.length > 0 ? links[0] : '';
     }
@@ -313,7 +373,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 
     // Utility function to check if a value is a link
-    isDataviewLink(value: any): boolean {
+    isWikiLink(value: any): boolean {
         return typeof value === 'object' && value.hasOwnProperty('path');
     }
     
@@ -356,43 +416,5 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 
 
-}
-
-
-interface CustomRenderer {
-    px: {
-        stage: {
-            addChild: (child: any) => void;
-            removeChild: (child: any) => void;
-            children: any[];
-        };
-    };
-    links: any[];
-    nodeScale: number;
-    panX: number;
-    panY: number;
-    scale: number;
-}
-
-interface CustomLink {
-    source: {
-        id: string;
-        x: number;
-        y: number;
-    };
-    target: {
-        id: string;
-        x: number;
-        y: number;
-    };
-}
-
-// Define the enum outside the class
-enum LinkType {
-    DataviewLink,
-    MarkdownLink,
-    String,
-    Array,
-    Other
 }
 
