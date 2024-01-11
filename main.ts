@@ -9,7 +9,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
     // Retrieve the Dataview API
     api = getAPI();
     // A map to keep track of the text nodes created for each link
-    nodeTextMap: Map<CustomLink, PIXI.Text> = new Map();
+    linkTextMap: Map<CustomLink, PIXI.Text> = new Map();
     currentRenderer: CustomRenderer | null = null;
     animationFrameId: number | null = null;
 
@@ -175,8 +175,8 @@ export default class GraphLinkTypesPlugin extends Plugin {
         }
 
         // If text already exists for this link, remove text
-        if (this.nodeTextMap.has(link)) {
-            const existingText = this.nodeTextMap.get(link)!;
+        if (this.linkTextMap.has(link)) {
+            const existingText = this.linkTextMap.get(link)!;
             renderer.px.stage.removeChild(existingText);
             existingText.destroy();
         }
@@ -192,7 +192,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         text.alpha = 0.7;
         text.anchor.set(0.5, 0.5);
         // Add the text node to the map and the renderer
-        this.nodeTextMap.set(link, text);
+        this.linkTextMap.set(link, text);
 
         this.updateTextPosition(renderer, link);
         renderer.px.stage.addChild(text);
@@ -205,7 +205,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
             return;
         }
  
-        const text: PIXI.Text | undefined = this.nodeTextMap.get(link);
+        const text: PIXI.Text | undefined = this.linkTextMap.get(link);
         // Calculate the mid-point of the link
         const midX: number = (link.source.x + link.target.x) / 2;
         const midY: number = (link.source.y + link.target.y) / 2;
@@ -221,13 +221,13 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
     // Remove all text nodes from the graph
     destroyMap(renderer: CustomRenderer): void {
-        if (this.nodeTextMap.size > 0) {
-            this.nodeTextMap.forEach((text, link) => {
+        if (this.linkTextMap.size > 0) {
+            this.linkTextMap.forEach((text, link) => {
                 if (text && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(text)) {
                     renderer.px.stage.removeChild(text);
                     text.destroy();
                 }
-                this.nodeTextMap.delete(link);
+                this.linkTextMap.delete(link);
             });
         }
     }
@@ -273,7 +273,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         renderer.links.forEach((link: CustomLink) => {
             if (updateMap) {
                 // Add text for new links.
-                if (!this.nodeTextMap.has(link)) {
+                if (!this.linkTextMap.has(link)) {
                     this.createTextForLink(renderer, link);
                 }
                 // Add all links to the set of links, so that we can check quickly when removing text.
@@ -284,13 +284,13 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
         // Remove text that should no longer be on stage.
         if (updateMap) {
-            this.nodeTextMap.forEach((text, link : CustomLink) => {
+            this.linkTextMap.forEach((text, link : CustomLink) => {
                 if (!rendererLinks.has(link)) {
                     if (text && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(text)) {
                         renderer.px.stage.removeChild(text);
                         text.destroy();
                     }
-                    this.nodeTextMap.delete(link);
+                    this.linkTextMap.delete(link);
                 }
             });
         }
