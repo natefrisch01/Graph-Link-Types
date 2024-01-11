@@ -144,7 +144,6 @@ export default class GraphLinkTypesPlugin extends Plugin {
             if (updateMap) {
                 const key = this.linkManager.generateKey(link.source.id, link.target.id);
                 if (!this.linkManager.linksMap.has(key)) {
-                    console.log("Adding link.")
                     this.linkManager.addLink(renderer, link);
                 }
             }
