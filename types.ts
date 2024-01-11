@@ -1,3 +1,5 @@
+import { Text }  from 'pixi.js';
+
 export interface ObsidianRenderer {
     px: {
         stage: {
@@ -36,8 +38,14 @@ export enum DataviewLinkType {
 }
 
 // Define a numeric enum for link statuses
-export enum LinkStatus {
+export enum LinkPair {
     None,
     First,
     Second,
+}
+
+export interface GltLink {
+    obsidianLink: ObsidianLink;
+    pairStatus: LinkPair;
+    pixiText: Text | null;
 }
