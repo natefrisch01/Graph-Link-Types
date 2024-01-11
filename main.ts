@@ -23,24 +23,18 @@ export default class GraphLinkTypesPlugin extends Plugin {
             this.handleLayoutChange();
         }));
 
+        // @ts-ignore
         this.registerEvent(this.app.metadataCache.on("dataview:index-ready", () => {
             console.log("Index ready, drawing graph link types.");
             this.handleLayoutChange();
         }));
 
+        // @ts-ignore
         this.registerEvent(this.app.metadataCache.on("dataview:metadata-change", () => {
             console.log("New metadata, drawing graph link types.");
             this.handleLayoutChange();
         }));
 
-        // // Add a command to the command palette
-        // this.addCommand({
-        //     id: 'print-link-type',
-        //     name: 'Print Link Type',
-        //     callback: () => {
-        //         this.toyLinks();
-        //     }
-        // });
     }
 
 
@@ -51,6 +45,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
     findRenderer(): ObsidianRenderer | null {
         let graphLeaves = this.app.workspace.getLeavesOfType('graph');
         for (const leaf of graphLeaves) {
+            // @ts-ignore
             const renderer = leaf.view.renderer;
             if (this.isObsidianRenderer(renderer)) {
                 return renderer;
@@ -59,6 +54,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
         graphLeaves = this.app.workspace.getLeavesOfType('localgraph');
         for (const leaf of graphLeaves) {
+            // @ts-ignore
             const renderer = leaf.view.renderer;
             if (this.isObsidianRenderer(renderer)) {
                 return renderer;

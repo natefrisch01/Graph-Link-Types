@@ -1,7 +1,8 @@
 
 import { ObsidianRenderer, ObsidianLink, LinkPair, GltLink, DataviewLinkType } from 'types';
-import { Page, getAPI  } from 'obsidian-dataview';
+import { getAPI  } from 'obsidian-dataview';
 import { Text, TextStyle }  from 'pixi.js';
+// @ts-ignore
 import extractLinks from 'markdown-link-extractor';
 
 
@@ -156,6 +157,7 @@ export class LinkManager {
         // Here, we assume that dark themes have a background color with a low brightness value.
         let textColor = '#FF0000';
         if (style && style.backgroundColor && style.backgroundColor) {
+            // @ts-ignore
             const isDarkTheme = style.backgroundColor.match(/\d+/g)?.map(Number).slice(0, 3).reduce((a, b) => a + b, 0) < 382.5;
             isDarkTheme ? textColor = '#FFFFFF' : textColor = '#000000'; // White text for dark themes, black for light themes)
         }
@@ -193,7 +195,7 @@ export class LinkManager {
 
     // Get the metadata key for a link between two pages
     private getMetadataKeyForLink(sourceId: string, targetId: string): string | null {
-        const sourcePage: Page | undefined = this.api.page(sourceId);
+        const sourcePage: any = this.api.page(sourceId);
         if (!sourcePage) return null;
 
         for (const [key, value] of Object.entries(sourcePage)) {
@@ -201,6 +203,7 @@ export class LinkManager {
 
             switch (valueType) {
                 case DataviewLinkType.WikiLink:
+                    // @ts-ignore
                     if (value.path === targetId) {
                         return key;
                     }
@@ -211,6 +214,7 @@ export class LinkManager {
                     }
                     break;
                 case DataviewLinkType.Array:
+                    // @ts-ignore
                     for (const item of value) {
                         if (this.determineDataviewLinkType(item) === DataviewLinkType.WikiLink && item.path === targetId) {
                             return key;
@@ -220,7 +224,8 @@ export class LinkManager {
                         }
                     }
                     break;
-                // Handle other cases as needed
+                default:
+                    console.warn("Link type from Obsidian not in recognized format.");
             }
         }
         return null;
