@@ -34,7 +34,6 @@ export class LinkManager {
             if (reverseLink) {
                 reverseLink.pairStatus = LinkPair.First;
             }
-            console.log("New Pair: ", newLink.obsidianLink, reverseLink?.obsidianLink);
         }
     }
 
