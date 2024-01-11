@@ -1,4 +1,4 @@
-export interface CustomRenderer {
+export interface ObsidianRenderer {
     px: {
         stage: {
             addChild: (child: any) => void;
@@ -13,7 +13,7 @@ export interface CustomRenderer {
     scale: number;
 }
 
-export interface CustomLink {
+export interface ObsidianLink {
     source: {
         id: string;
         x: number;
@@ -37,7 +37,7 @@ export enum DataviewLinkType {
 
 // Define a numeric enum for link statuses
 export enum LinkStatus {
+    None,
     First,
     Second,
-    None,
 }

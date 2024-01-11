@@ -1,6 +1,6 @@
 import { Plugin, WorkspaceLeaf, Notice} from 'obsidian';
 import { getAPI, Page } from 'obsidian-dataview';
-import { CustomRenderer, CustomLink, DataviewLinkType} from 'types';
+import { ObsidianRenderer, ObsidianLink, DataviewLinkType, LinkStatus} from 'types';
 import { LinkManager } from 'linkManager';
 import * as PIXI from 'pixi.js';
 import extractLinks from 'markdown-link-extractor';
@@ -9,8 +9,8 @@ export default class GraphLinkTypesPlugin extends Plugin {
     // Retrieve the Dataview API
     api = getAPI();
     // A map to keep track of the text nodes created for each link
-    linkTextMap: Map<CustomLink, PIXI.Text> = new Map();
-    currentRenderer: CustomRenderer | null = null;
+    linkTextMap: Map<ObsidianLink, PIXI.Text> = new Map();
+    currentRenderer: ObsidianRenderer | null = null;
     animationFrameId: number | null = null;
 
     // Lifecycle method called when the plugin is loaded
@@ -38,7 +38,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
     toyLinks() {
         // Example frames: Each frame is an array of links
-        const frames: CustomLink[][] = [
+        const frames: ObsidianLink[][] = [
             // Frame 1: Simple links, some will form pairs later
             [
             { source: { id: "A", x: 0, y: 0 }, target: { id: "B", x: 0, y: 0 } },
@@ -65,6 +65,12 @@ export default class GraphLinkTypesPlugin extends Plugin {
             { source: { id: "B", x: 0, y: 0 }, target: { id: "A", x: 0, y: 0 } },
             { source: { id: "G", x: 0, y: 0 }, target: { id: "H", x: 0, y: 0 } }, // New link
             ],
+            // Frame 5: Keeping a pair, removing a single link, adding a new link
+            [
+                { source: { id: "A", x: 0, y: 0 }, target: { id: "B", x: 0, y: 0 } }, // Existing link
+                { source: { id: "B", x: 0, y: 0 }, target: { id: "A", x: 0, y: 0 } }, // Existing pair
+                { source: { id: "G", x: 0, y: 0 }, target: { id: "H", x: 0, y: 0 } }, // New link
+            ],
         ];
 
         const linkManager = new LinkManager();
@@ -84,9 +90,9 @@ export default class GraphLinkTypesPlugin extends Plugin {
                 const status = linkManager.getLinkStatus(key);
 
                 // Print link status
-                if (status === 'first') {
+                if (status === LinkStatus.First) {
                     console.log('first: ' + key);
-                } else if (status === 'second') {
+                } else if (status === LinkStatus.Second) {
                     console.log('second: ' + key);
                 } else {
                     console.log(key); // Not part of a pair
@@ -99,11 +105,11 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
 
     // Find the first valid graph renderer in the workspace
-    findRenderer(): CustomRenderer | null {
+    findRenderer(): ObsidianRenderer | null {
         let graphLeaves = this.app.workspace.getLeavesOfType('graph');
         for (const leaf of graphLeaves) {
             const renderer = leaf.view.renderer;
-            if (this.isCustomRenderer(renderer)) {
+            if (this.isObsidianRenderer(renderer)) {
                 return renderer;
             }
         }
@@ -111,7 +117,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         graphLeaves = this.app.workspace.getLeavesOfType('localgraph');
         for (const leaf of graphLeaves) {
             const renderer = leaf.view.renderer;
-            if (this.isCustomRenderer(renderer)) {
+            if (this.isObsidianRenderer(renderer)) {
                 return renderer;
             }
         }
@@ -154,7 +160,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 	
     // Create or update text for a given link
-    createTextForLink(renderer: CustomRenderer, link: CustomLink, reverseString : string | null = null): void {
+    createTextForLink(renderer: ObsidianRenderer, link: ObsidianLink, reverseString : string | null = null): void {
 
         // Get the text to display for the link
         let linkString: string | null = this.getMetadataKeyForLink(link.source.id, link.target.id);
@@ -164,7 +170,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         if (link.source.id === link.target.id) {
             linkString = "";
         } else if (reverseString === null) {
-            const reverseLink : CustomLink | undefined = renderer.links.find(linkFromLoop => linkFromLoop.source.id === link.target.id && linkFromLoop.target.id === link.source.id);
+            const reverseLink : ObsidianLink | undefined = renderer.links.find(linkFromLoop => linkFromLoop.source.id === link.target.id && linkFromLoop.target.id === link.source.id);
             
             if (reverseLink) {
                 this.createTextForLink(renderer, reverseLink, linkString);
@@ -199,7 +205,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 
     // Update the position of the text on the graph
-    updateTextPosition(renderer: CustomRenderer, link: CustomLink): void {
+    updateTextPosition(renderer: ObsidianRenderer, link: ObsidianLink): void {
         if (!renderer || !link || !link.source || !link.target) {
             // If any of these are null, exit the function
             return;
@@ -220,7 +226,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
     }
 
     // Remove all text nodes from the graph
-    destroyMap(renderer: CustomRenderer): void {
+    destroyMap(renderer: ObsidianRenderer): void {
         if (this.linkTextMap.size > 0) {
             this.linkTextMap.forEach((text, link) => {
                 if (text && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(text)) {
@@ -240,11 +246,11 @@ export default class GraphLinkTypesPlugin extends Plugin {
             }
             return;
         }
-        const renderer : CustomRenderer = this.currentRenderer;
+        const renderer : ObsidianRenderer = this.currentRenderer;
         // Remove existing text from the graph.
         this.destroyMap(renderer);
         // Create text for each link in the graph.
-        renderer.links.forEach((link: CustomLink) => this.createTextForLink(renderer, link));
+        renderer.links.forEach((link: ObsidianLink) => this.createTextForLink(renderer, link));
         // Call the function to update positions in the next animation frame.
         requestAnimationFrame(this.updatePositions.bind(this));
     }
@@ -260,17 +266,17 @@ export default class GraphLinkTypesPlugin extends Plugin {
         }
 
         let updateMap = false;
-        let rendererLinks: Set<CustomLink>;
+        let rendererLinks: Set<ObsidianLink>;
 
         if (this.animationFrameId && this.animationFrameId % 20 == 0) {
             updateMap = true;
             rendererLinks = new Set();
         }
 
-        const renderer: CustomRenderer = this.currentRenderer;
+        const renderer: ObsidianRenderer = this.currentRenderer;
 
         // For each link in the graph, update the position of its text.
-        renderer.links.forEach((link: CustomLink) => {
+        renderer.links.forEach((link: ObsidianLink) => {
             if (updateMap) {
                 // Add text for new links.
                 if (!this.linkTextMap.has(link)) {
@@ -284,7 +290,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
         // Remove text that should no longer be on stage.
         if (updateMap) {
-            this.linkTextMap.forEach((text, link : CustomLink) => {
+            this.linkTextMap.forEach((text, link : ObsidianLink) => {
                 if (!rendererLinks.has(link)) {
                     if (text && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(text)) {
                         renderer.px.stage.removeChild(text);
@@ -377,7 +383,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         return typeof value === 'object' && value.hasOwnProperty('path');
     }
     
-    isCustomRenderer(renderer: any): renderer is CustomRenderer {
+    isObsidianRenderer(renderer: any): renderer is ObsidianRenderer {
         return renderer 
             && renderer.px 
             && renderer.px.stage 
@@ -388,7 +394,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
             && Array.isArray(renderer.links);
     }
 
-    isCustomLink(link: any): link is CustomLink {
+    isObsidianLink(link: any): link is ObsidianLink {
         return link 
             && link.source 
             && typeof link.source.id === 'string'

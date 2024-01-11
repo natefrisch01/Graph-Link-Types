@@ -1,21 +1,13 @@
 
 import { CustomLink, LinkStatus } from 'types';
 
-
-// Create a mapping from numeric values to string values
-const LinkStatusStringMap: Record<LinkStatus, 'first' | 'second' | 'none'> = {
-    [LinkStatus.First]: 'first',
-    [LinkStatus.Second]: 'second',
-    [LinkStatus.None]: 'none',
-};
-
 export class LinkManager {
     linksMap: Map<string, CustomLink>;
-    linkStatus: Map<string, LinkStatus>;
+    linkStatus: Map<string, LinkStatus.First | LinkStatus.Second>;
 
     constructor() {
         this.linksMap = new Map<string, CustomLink>();
-        this.linkStatus = new Map<string, LinkStatus>();
+        this.linkStatus = new Map<string, LinkStatus.First | LinkStatus.Second>();
     }
 
     generateKey(sourceId: string, targetId: string): string {
@@ -65,7 +57,12 @@ export class LinkManager {
         }
     }
 
-    getLinkStatus(key: string): 'first' | 'second' | 'none' {
-        return LinkStatusStringMap[this.linkStatus.get(key) || LinkStatus.None];
+    getLinkStatus(key: string): LinkStatus {
+        const status = this.linkStatus.get(key)
+        if (status !== undefined) {
+            return status
+        } else{
+            return LinkStatus.None
+        }
     }
 }
