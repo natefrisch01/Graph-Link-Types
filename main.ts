@@ -25,13 +25,11 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
         // @ts-ignore
         this.registerEvent(this.app.metadataCache.on("dataview:index-ready", () => {
-            console.log("Index ready, drawing graph link types.");
             this.handleLayoutChange();
         }));
 
         // @ts-ignore
         this.registerEvent(this.app.metadataCache.on("dataview:metadata-change", () => {
-            console.log("New metadata, drawing graph link types.");
             this.handleLayoutChange();
         }));
 
