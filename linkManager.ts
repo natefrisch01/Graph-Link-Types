@@ -225,7 +225,8 @@ export class LinkManager {
                     }
                     break;
                 default:
-                    console.warn("Link type from Obsidian not in recognized format.");
+                    //metadata is not a link, return null
+                    return null;
             }
         }
         return null;
