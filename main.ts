@@ -9,9 +9,11 @@ export default class GraphLinkTypesPlugin extends Plugin {
     currentRenderer: ObsidianRenderer | null = null;
     animationFrameId: number | null = null;
     linkManager = new LinkManager();
+    indexReady = false;
 
     // Lifecycle method called when the plugin is loaded
     async onload(): Promise<void> {
+        
         // Check if the Dataview API is available
         if (!this.api) {
             console.error("Dataview plugin is not available.");
@@ -26,18 +28,17 @@ export default class GraphLinkTypesPlugin extends Plugin {
         // @ts-ignore
         this.registerEvent(this.app.metadataCache.on("dataview:index-ready", () => {
             this.handleLayoutChange();
+            this.indexReady = true;
         }));
 
         // @ts-ignore
         this.registerEvent(this.app.metadataCache.on("dataview:metadata-change", () => {
-            this.handleLayoutChange();
+            if (this.indexReady) {
+                this.handleLayoutChange();
+            }
         }));
 
     }
-
-
-
-
 
     // Find the first valid graph renderer in the workspace
     findRenderer(): ObsidianRenderer | null {
