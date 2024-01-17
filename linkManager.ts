@@ -9,13 +9,70 @@ import extractLinks from 'markdown-link-extractor';
 export class LinkManager {
     linksMap: Map<string, GltLink>;
     api = getAPI();
+    currentTheme : string;
+    textColor : string;
 
     constructor() {
         this.linksMap = new Map<string, GltLink>();
+
+        // Detect changes to the theme.
+        this.detectThemeChange();
     }
 
     generateKey(sourceId: string, targetId: string): string {
         return `${sourceId}-${targetId}`;
+    }
+    
+    private detectThemeChange(): void {
+        let lastTheme = '';
+        let lastStyleSheetHref = '';
+        let debounceTimer: number;
+    
+        const themeObserver = new MutationObserver(() => {
+            clearTimeout(debounceTimer);
+            debounceTimer = window.setTimeout(() => {
+                this.currentTheme = document.body.classList.contains('theme-dark') ? 'theme-dark' : 'theme-light';
+                const currentStyleSheetHref = document.querySelector('link[rel="stylesheet"][href*="theme"]')?.getAttribute('href');
+                if ((this.currentTheme && this.currentTheme !== lastTheme) || (currentStyleSheetHref !== lastStyleSheetHref)) {
+                    console.log(`Theme has changed to: ${this.currentTheme}`);
+                    this.textColor = this.getComputedColorFromClass(this.currentTheme, '--text-normal');
+                    console.log(this.textColor);
+                    lastTheme = this.currentTheme;
+                    if (currentStyleSheetHref) {
+                        lastStyleSheetHref = currentStyleSheetHref;
+                    }
+                }
+            }, 100); // Debounce delay
+        });
+    
+        themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        themeObserver.observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
+    }
+    
+    private getComputedColorFromClass(className : string, cssVariable : string) : string {
+        // Create a temporary element
+        const tempElement = document.createElement('div');
+    
+        // Apply the class to the temporary element
+        tempElement.classList.add(className);
+        document.body.appendChild(tempElement);
+    
+        // Get the computed style of the temporary element
+        const style = getComputedStyle(tempElement);
+        const colorValue = style.getPropertyValue(cssVariable).trim();
+    
+        // Remove the temporary element
+        document.body.removeChild(tempElement);
+
+        // Check if the color is in HSL format
+        if (colorValue.startsWith('hsl')) {
+            // Return a default color based on some condition, e.g., current theme
+            // This is a placeholder condition
+            return document.body.classList.contains('theme-dark') ? '#b3b3b3' : '#5c5c5c';
+        } else {
+            // If it's not HSL, return the color as-is
+            return colorValue;
+        }
     }
 
     addLink(renderer: ObsidianRenderer, obLink: ObsidianLink): void {
@@ -101,6 +158,7 @@ export class LinkManager {
             text.x = x;
             text.y = y;
             text.scale.set(1 / (3 * renderer.nodeScale));
+            text.style.fill = this.textColor;
         }
     }
 
@@ -129,7 +187,7 @@ export class LinkManager {
         const textStyle: TextStyle = new TextStyle({
             fontFamily: 'Arial',
             fontSize: 36,
-            fill: this.determineTextColor()
+            fill: this.textColor
         });
         // Create new text node
         const text: Text = new Text(linkString, textStyle);
@@ -147,22 +205,6 @@ export class LinkManager {
         const links = extractLinks(markdownLink).links;
         // The package returns an array of links. Assuming you want the first link.
         return links.length > 0 ? links[0] : '';
-    }
-
-    private determineTextColor(): string {
-        // Get the computed style of the document body
-        const style = getComputedStyle(document.body);
-
-        // This is a basic check. You might need to adjust the logic based on the themes you support.
-        // Here, we assume that dark themes have a background color with a low brightness value.
-        let textColor = '#FF0000';
-        if (style && style.backgroundColor && style.backgroundColor) {
-            // @ts-ignore
-            const isDarkTheme = style.backgroundColor.match(/\d+/g)?.map(Number).slice(0, 3).reduce((a, b) => a + b, 0) < 382.5;
-            isDarkTheme ? textColor = '#FFFFFF' : textColor = '#000000'; // White text for dark themes, black for light themes)
-        }
-
-        return textColor
     }
 
     // Method to determine the type of a value, now a class method
@@ -237,6 +279,5 @@ export class LinkManager {
         // Apply scaling and panning to calculate the actual position.
         return { x: linkX * scale + panX, y: linkY * scale + panY };
     }
-    
         
 }
