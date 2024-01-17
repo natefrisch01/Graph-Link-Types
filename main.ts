@@ -1,6 +1,6 @@
 import { Plugin, Notice} from 'obsidian';
 import { getAPI } from 'obsidian-dataview';
-import { ObsidianRenderer, ObsidianLink, LinkPair} from 'types';
+import { ObsidianRenderer, ObsidianLink} from 'types';
 import { LinkManager } from 'linkManager';
 
 
@@ -108,7 +108,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         const renderer : ObsidianRenderer = this.currentRenderer;
         // Remove existing text from the graph.
         this.linkManager.destroyMap(renderer);
-       
+
         // Call the function to update positions in the next animation frame.
         requestAnimationFrame(this.updatePositions.bind(this));
     }
@@ -122,13 +122,11 @@ export default class GraphLinkTypesPlugin extends Plugin {
             return;
         }
 
-
-
         const renderer: ObsidianRenderer = this.currentRenderer;
 
         let updateMap = false;
 
-        if (this.animationFrameId && this.animationFrameId % 20 == 0) {
+        if (this.animationFrameId && this.animationFrameId % 10 == 0) {
             updateMap = true;
             // Update link manager with the current frame's links
             this.linkManager.removeLinks(renderer, renderer.links);
@@ -159,5 +157,6 @@ export default class GraphLinkTypesPlugin extends Plugin {
             && typeof renderer.px.stage.removeChild === 'function'
             && Array.isArray(renderer.links);
     }
+
 }
 
