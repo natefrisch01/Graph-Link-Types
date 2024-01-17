@@ -38,7 +38,7 @@ GraphLinkTypes will display "related" on the link in the graph view.
 
 
 ## Development and Contributions
-Interested in contributing to the development of GraphLinkTypes? Check out the [Obsidian Sample Plugin](https://github.com/obsidianmd/obsidian-sample-plugin) for guidelines on how to develop a custom plugin for Obsidian.
+Interested in contributing to the development of Graph Link Types? Check out the [Obsidian Sample Plugin](https://github.com/obsidianmd/obsidian-sample-plugin) for guidelines on how to develop a custom plugin for Obsidian.
 
 ## Milestone Goals
 Stay updated with our progress and future plans by checking our [Milestone Goals](https://github.com/natefrisch01/Graph-Link-Types/milestones).
