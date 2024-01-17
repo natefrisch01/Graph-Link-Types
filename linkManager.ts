@@ -34,9 +34,7 @@ export class LinkManager {
                 this.currentTheme = document.body.classList.contains('theme-dark') ? 'theme-dark' : 'theme-light';
                 const currentStyleSheetHref = document.querySelector('link[rel="stylesheet"][href*="theme"]')?.getAttribute('href');
                 if ((this.currentTheme && this.currentTheme !== lastTheme) || (currentStyleSheetHref !== lastStyleSheetHref)) {
-                    console.log(`Theme has changed to: ${this.currentTheme}`);
                     this.textColor = this.getComputedColorFromClass(this.currentTheme, '--text-normal');
-                    console.log(this.textColor);
                     lastTheme = this.currentTheme;
                     if (currentStyleSheetHref) {
                         lastStyleSheetHref = currentStyleSheetHref;
