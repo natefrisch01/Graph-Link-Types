@@ -1,9 +1,9 @@
 {
 	"id": "graph-link-types",
 	"name": "Graph Link Types",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"minAppVersion": "1.5.0",
-	"description": "Link types for Obsidian graph view.",
+	"description": "Link types for graph view.",
 	"author": "natefrisch01",
 	"authorUrl": "https://natesnote.com",
 	"fundingUrl": "https://www.buymeacoffee.com/natefrisch",

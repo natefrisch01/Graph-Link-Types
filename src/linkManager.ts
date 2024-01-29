@@ -1,5 +1,5 @@
 
-import { ObsidianRenderer, ObsidianLink, LinkPair, GltLink, DataviewLinkType } from 'types';
+import { ObsidianRenderer, ObsidianLink, LinkPair, GltLink, DataviewLinkType } from 'src/types';
 import { getAPI  } from 'obsidian-dataview';
 import { Text, TextStyle }  from 'pixi.js';
 // @ts-ignore

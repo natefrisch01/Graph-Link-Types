@@ -10,15 +10,9 @@
     "moduleResolution": "node",
     "importHelpers": true,
     "isolatedModules": true,
-	"strictNullChecks": true,
-    "lib": [
-      "DOM",
-      "ES5",
-      "ES6",
-      "ES7"
-    ]
+    "strictNullChecks": true,
+    "lib": ["DOM", "ES5", "ES6", "ES7"],
+    "rootDir": "src" // Explicitly set the root directory
   },
-  "include": [
-    "**/*.ts"
-  ]
+  "include": ["src/**/*.ts"] // Adjust the include pattern to be more specific
 }

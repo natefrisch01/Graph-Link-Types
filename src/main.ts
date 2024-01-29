@@ -1,7 +1,7 @@
 import { Plugin, Notice} from 'obsidian';
 import { getAPI } from 'obsidian-dataview';
-import { ObsidianRenderer, ObsidianLink} from 'types';
-import { LinkManager } from 'linkManager';
+import { ObsidianRenderer, ObsidianLink} from 'src/types';
+import { LinkManager } from 'src/linkManager';
 
 
 export default class GraphLinkTypesPlugin extends Plugin {
@@ -17,6 +17,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
         // Check if the Dataview API is available
         if (!this.api) {
             console.error("Dataview plugin is not available.");
+            new Notice("Data plugin is not available.");
             return;
         }
 
@@ -25,9 +26,14 @@ export default class GraphLinkTypesPlugin extends Plugin {
             this.handleLayoutChange();
         }));
 
+        // Handle window changes
+        this.registerEvent(this.app.workspace.on('window-open', (win, window) => {
+            this.handleLayoutChange();
+        }));
+
         // @ts-ignore
         this.registerEvent(this.app.metadataCache.on("dataview:index-ready", () => {
-            this.handleLayoutChange();
+            console.log("Index Ready");
             this.indexReady = true;
         }));
 
