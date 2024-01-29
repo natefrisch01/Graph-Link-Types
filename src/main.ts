@@ -33,7 +33,6 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
         // @ts-ignore
         this.registerEvent(this.app.metadataCache.on("dataview:index-ready", () => {
-            console.log("Index Ready");
             this.indexReady = true;
         }));
 
