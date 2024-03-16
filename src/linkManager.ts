@@ -345,7 +345,7 @@ export class LinkManager {
                 this.currentTagColorIndex = (this.currentTagColorIndex + 1) % this.categoricalColors.length;
 
                 // Create and add the label
-                const textL = new Text(linkString, { fontFamily: 'Arial', fontSize: 14, fill: 0x000000 });
+                const textL = new Text(linkString, { fontFamily: 'Arial', fontSize: 14, fill: this.textColor });
                 textL.x = this.xOffset;
                 textL.y = this.yOffset;
                 renderer.px.stage.addChild(textL);
