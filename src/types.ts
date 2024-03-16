@@ -1,8 +1,9 @@
-import { Text }  from 'pixi.js';
+import { Text , Graphics}  from 'pixi.js';
 
 export interface ObsidianRenderer {
     px: {
         stage: {
+            sortableChildren: boolean;
             addChild: (child: any) => void;
             removeChild: (child: any) => void;
             children: any[];
@@ -48,4 +49,5 @@ export interface GltLink {
     obsidianLink: ObsidianLink;
     pairStatus: LinkPair;
     pixiText: Text | null;
+    pixiGraphics: Graphics | null;
 }

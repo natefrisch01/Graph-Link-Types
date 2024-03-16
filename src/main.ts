@@ -1,10 +1,46 @@
-import { Plugin, Notice} from 'obsidian';
+import { Plugin, Notice , App, PluginSettingTab, Setting} from 'obsidian';
 import { getAPI } from 'obsidian-dataview';
 import { ObsidianRenderer, ObsidianLink} from 'src/types';
 import { LinkManager } from 'src/linkManager';
 
+export interface GraphLinkTypesPluginSettings {
+    tagColors: boolean;
+}
+
+const DEFAULT_SETTINGS: GraphLinkTypesPluginSettings = {
+    tagColors: false // By default, the feature is enabled
+};
+
+class GraphLinkTypesSettingTab extends PluginSettingTab {
+    plugin: GraphLinkTypesPlugin;
+
+    constructor(app: App, plugin: GraphLinkTypesPlugin) {
+        super(app, plugin);
+        this.plugin = plugin;
+    }
+
+    display(): void {
+        const {containerEl} = this;
+        containerEl.empty();
+
+        new Setting(containerEl)
+            .setName('Type Colors')
+            .setDesc('Toggle to enable or disable link type colors.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.tagColors)
+                .onChange(async (value) => {
+                    this.plugin.settings.tagColors = value;
+                    await this.plugin.saveSettings();
+                    // if (value = true) {
+                    //     this.plugin.linkManager.tagColors.clear();
+                    // }
+                }));
+    }
+}
 
 export default class GraphLinkTypesPlugin extends Plugin {
+    
+    settings: GraphLinkTypesPluginSettings;
     api = getAPI();
     currentRenderer: ObsidianRenderer | null = null;
     animationFrameId: number | null = null;
@@ -14,6 +50,9 @@ export default class GraphLinkTypesPlugin extends Plugin {
     // Lifecycle method called when the plugin is loaded
     async onload(): Promise<void> {
         
+        await this.loadSettings();
+        this.addSettingTab(new GraphLinkTypesSettingTab(this.app, this));
+
         // Check if the Dataview API is available
         if (!this.api) {
             console.error("Dataview plugin is not available.");
@@ -23,11 +62,6 @@ export default class GraphLinkTypesPlugin extends Plugin {
 
         // Handle layout changes
         this.registerEvent(this.app.workspace.on('layout-change', () => {
-            this.handleLayoutChange();
-        }));
-
-        // Handle window changes
-        this.registerEvent(this.app.workspace.on('window-open', (win, window) => {
             this.handleLayoutChange();
         }));
 
@@ -43,6 +77,14 @@ export default class GraphLinkTypesPlugin extends Plugin {
             }
         }));
 
+    }
+
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
     }
 
     // Find the first valid graph renderer in the workspace
@@ -83,6 +125,7 @@ export default class GraphLinkTypesPlugin extends Plugin {
             this.currentRenderer = null;
             return;
         }
+        newRenderer.px.stage.sortableChildren = true;
         this.currentRenderer = newRenderer;
         this.startUpdateLoop();
     }
@@ -142,10 +185,13 @@ export default class GraphLinkTypesPlugin extends Plugin {
             if (updateMap) {
                 const key = this.linkManager.generateKey(link.source.id, link.target.id);
                 if (!this.linkManager.linksMap.has(key)) {
-                    this.linkManager.addLink(renderer, link);
+                    this.linkManager.addLink(renderer, link, this.settings.tagColors);
                 }
             }
-            this.linkManager.updateTextPosition(renderer, link);
+            this.linkManager.updateLinkText(renderer, link);
+            if (this.settings.tagColors) {
+                this.linkManager.updateLinkGraphics(renderer, link);
+            }
         });
 
         // Continue updating positions in the next animation frame.

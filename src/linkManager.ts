@@ -1,7 +1,7 @@
 
 import { ObsidianRenderer, ObsidianLink, LinkPair, GltLink, DataviewLinkType } from 'src/types';
 import { getAPI  } from 'obsidian-dataview';
-import { Text, TextStyle }  from 'pixi.js';
+import { Text, TextStyle , Graphics}  from 'pixi.js';
 // @ts-ignore
 import extractLinks from 'markdown-link-extractor';
 
@@ -11,9 +11,42 @@ export class LinkManager {
     api = getAPI();
     currentTheme : string;
     textColor : string;
+    tagColors: Map<string, number>;
+    categoricalColors: number[] = [
+        0xF44336, // Red
+        0x03A9F4, // Light Blue
+        0xFF9800, // Orange
+        0x9C27B0, // Purple
+        0xCDDC39, // Lime
+        0x3F51B5, // Indigo
+        0xFFC107, // Amber
+        0x00BCD4, // Cyan
+        0xE91E63, // Pink
+        0x4CAF50, // Green
+        0xFF5722, // Deep Orange
+        0x673AB7, // Deep Purple
+        0x9E9E9E, // Grey
+        0x2196F3, // Blue
+        0x8BC34A, // Light Green
+        0x795548, // Brown
+        0x009688, // Teal
+        0x607D8B, // Blue Grey
+        0xFFEB3B, // Yellow
+        0x000000  // Black for contrast
+    ]
+
+      
+      currentTagColorIndex = 0;
+      yOffset = 5; // To increment the y position for each legend item
+      xOffset = 20;
+      lineHeight = 17; // Height of each line in the legend
+      lineLength = 40; // Width of the color line
+      spaceBetweenTextAndLine = 1; // Space between the text and the start of the line
+
 
     constructor() {
         this.linksMap = new Map<string, GltLink>();
+        this.tagColors = new Map<string, number>();
 
         // Detect changes to the theme.
         this.detectThemeChange();
@@ -73,14 +106,15 @@ export class LinkManager {
         }
     }
 
-    addLink(renderer: ObsidianRenderer, obLink: ObsidianLink): void {
+    addLink(renderer: ObsidianRenderer, obLink: ObsidianLink, tagColors: boolean): void {
         const key = this.generateKey(obLink.source.id, obLink.target.id);
         const reverseKey = this.generateKey(obLink.target.id, obLink.source.id);
         const pairStatus = (obLink.source.id !== obLink.target.id) && this.linksMap.has(reverseKey) ? LinkPair.Second : LinkPair.None;
         const newLink: GltLink = {
             obsidianLink: obLink,
             pairStatus: pairStatus,
-            pixiText: this.createTextForLink(renderer, obLink, pairStatus)
+            pixiText: this.initializeLinkText(renderer, obLink, pairStatus),
+            pixiGraphics: tagColors ? this.initializeLinkGraphics(renderer, obLink, pairStatus) : null,
         };
 
         this.linksMap.set(key, newLink);
@@ -99,9 +133,25 @@ export class LinkManager {
 
         const gltLink = this.linksMap.get(key);
         
+        let text;
         if (gltLink && gltLink.pixiText && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(gltLink.pixiText)) {
+            text = gltLink.pixiText.text;
             renderer.px.stage.removeChild(gltLink.pixiText);
             gltLink.pixiText.destroy();
+        }
+
+        if (gltLink && gltLink.pixiGraphics && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(gltLink.pixiGraphics)) {
+            renderer.px.stage.removeChild(gltLink.pixiGraphics);
+            gltLink.pixiGraphics.destroy();
+        }
+
+        let colorKey = text?.replace(/\r?\n/g, "");
+        if (colorKey) {
+            if (this.tagColors.has(colorKey)) {
+                this.tagColors.delete(colorKey);
+                this.yOffset -= this.lineHeight;
+                this.currentTagColorIndex -= 1;
+            }
         }
 
         this.linksMap.delete(key);
@@ -131,7 +181,7 @@ export class LinkManager {
     }
 
     // Update the position of the text on the graph
-    updateTextPosition(renderer: ObsidianRenderer, link: ObsidianLink): void {
+    updateLinkText(renderer: ObsidianRenderer, link: ObsidianLink): void {
         if (!renderer || !link || !link.source || !link.target) {
             // If any of these are null, exit the function
             return;
@@ -160,8 +210,73 @@ export class LinkManager {
         }
     }
 
+    // Update the position of the text on the graph
+    updateLinkGraphics(renderer: ObsidianRenderer, link: ObsidianLink): void {
+        if (!renderer || !link || !link.source || !link.target) {
+            // If any of these are null, exit the function
+            return;
+        }
+        const linkKey = this.generateKey(link.source.id, link.target.id);
+        const gltLink = this.linksMap.get(linkKey);
+        let graphics;
+        if (gltLink) {
+            graphics = gltLink.pixiGraphics;
+        } else {
+            return
+        };
+        let {nx, ny} = this.calculateNormal(link.source.x, link.source.y, link.target.x, link.target.y);
+        let {px, py} = this.calculateParallel(link.source.x, link.source.y, link.target.x, link.target.y);
+        
+        nx *= Math.sqrt(renderer.scale);
+        ny *= Math.sqrt(renderer.scale);
+
+        px *= 8*Math.sqrt(renderer.scale);
+        py *= 8*Math.sqrt(renderer.scale);
+  
+
+        let { x:x1, y:y1 } = this.getLinkToTextCoordinates(link.source.x, link.source.y, renderer.panX, renderer.panY, renderer.scale);
+        let { x:x2, y:y2 } = this.getLinkToTextCoordinates(link.target.x, link.target.y, renderer.panX, renderer.panY, renderer.scale);
+        x1 += nx + px;
+        x2 += nx - px;
+        y1 += ny + py;
+        y2 += ny - py;
+
+
+        
+        let color;
+
+        // Get the text to display for the link
+        let linkString: string | null = this.getMetadataKeyForLink(link.source.id, link.target.id);
+        if (linkString === null) {
+
+        } else {
+
+        
+            if (link.source.id === link.target.id) {
+                linkString = "";
+            }
+
+
+            if (!this.tagColors.has(linkString)) {
+                color = 0x000000;
+            } else {
+                color = this.tagColors.get(linkString);
+            }
+        }
+      
+
+        if (graphics && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(graphics)) {
+            // Now, update the line whenever needed without creating a new graphics object each time
+            graphics.clear(); // Clear the previous drawing to prepare for the update
+            graphics.lineStyle(3/Math.sqrt(renderer.nodeScale), color); // Set the line style (width: 2px, color: black, alpha: 1)
+            graphics.alpha = .6;
+            graphics.moveTo(x1, y1); // Move to the starting point of the line (source node)
+            graphics.lineTo(x2, y2); // Draw the line to the ending point (target node)
+        }
+    }
+
     // Create or update text for a given link
-    private createTextForLink(renderer: ObsidianRenderer, link: ObsidianLink, pairStatus : LinkPair): Text | null{
+    private initializeLinkText(renderer: ObsidianRenderer, link: ObsidianLink, pairStatus : LinkPair): Text | null{
 
         // Get the text to display for the link
         let linkString: string | null = this.getMetadataKeyForLink(link.source.id, link.target.id);
@@ -181,6 +296,8 @@ export class LinkManager {
         } else {
 
         }
+
+
         // Define the style for the text
         const textStyle: TextStyle = new TextStyle({
             fontFamily: 'Arial',
@@ -189,13 +306,74 @@ export class LinkManager {
         });
         // Create new text node
         const text: Text = new Text(linkString, textStyle);
-        text.alpha = 0.7;
+
+        text.zIndex = 1;
+        text.alpha = 0.9;
         text.anchor.set(0.5, 0.5);
 
 
-        this.updateTextPosition(renderer, link);
+
+        this.updateLinkText(renderer, link);
         renderer.px.stage.addChild(text);
+        
         return text
+    }
+
+    // Create or update text for a given link
+    private initializeLinkGraphics(renderer: ObsidianRenderer, link: ObsidianLink, pairStatus : LinkPair): Graphics | null{
+
+        // Get the text to display for the link
+        let linkString: string | null = this.getMetadataKeyForLink(link.source.id, link.target.id);
+        if (linkString === null) {
+            return null;
+        } //doesn't add if link is null
+
+        
+        if (link.source.id === link.target.id) {
+            linkString = "";
+        } else {
+
+            let color;
+
+
+
+
+            if (!this.tagColors.has(linkString)) {
+                color = this.categoricalColors[this.currentTagColorIndex];
+                this.tagColors.set(linkString, color);
+                // Increment and wrap the index to cycle through colors
+                this.currentTagColorIndex = (this.currentTagColorIndex + 1) % this.categoricalColors.length;
+
+                // Create and add the label
+                const textL = new Text(linkString, { fontFamily: 'Arial', fontSize: 14, fill: 0x000000 });
+                textL.x = this.xOffset;
+                textL.y = this.yOffset;
+                renderer.px.stage.addChild(textL);
+
+                    // Calculate the starting x-coordinate for the line, based on the text width
+                const lineStartX = this.xOffset + textL.width + this.spaceBetweenTextAndLine;
+
+                const graphicsL = new Graphics();
+                graphicsL.lineStyle(2, color, 1); // Assuming 'color' is in a PIXI-compatible format
+                graphicsL.moveTo(lineStartX, this.yOffset + (this.lineHeight / 2)); // Start a little below the text
+                graphicsL.lineTo(lineStartX + this.lineLength, this.yOffset + (this.lineHeight / 2)); // 40 pixels wide line
+                renderer.px.stage.addChild(graphicsL);
+                this.yOffset += this.lineHeight;
+            } else {
+                color = this.tagColors.get(linkString);
+            }
+        }
+
+
+        const graphics = new Graphics();
+        graphics.zIndex = 0;
+        renderer.px.stage.addChild(graphics); // Add the line to the stage
+
+
+        this.updateLinkGraphics(renderer, link);
+
+        
+        return graphics
     }
 
     // Utility function to extract the file path from a Markdown link
@@ -223,11 +401,28 @@ export class LinkManager {
     // Remove all text nodes from the graph
     destroyMap(renderer: ObsidianRenderer): void {
         if (this.linksMap.size > 0) {
-            this.linksMap.forEach((gltLink, linkKey) => {
-                if (gltLink.pixiText && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(gltLink.pixiText)) {
+            this.linksMap.forEach((gltLink, linkKey) => {      
+                let text;
+                if (gltLink && gltLink.pixiText && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(gltLink.pixiText)) {
+                    text = gltLink.pixiText.text;
                     renderer.px.stage.removeChild(gltLink.pixiText);
                     gltLink.pixiText.destroy();
                 }
+        
+                if (gltLink && gltLink.pixiGraphics && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(gltLink.pixiGraphics)) {
+                    renderer.px.stage.removeChild(gltLink.pixiGraphics);
+                    gltLink.pixiGraphics.destroy();
+                }
+
+                let colorKey = text?.replace(/\r?\n/g, "");
+                if (colorKey) {
+                    if (this.tagColors.has(colorKey)) {
+                        this.tagColors.delete(colorKey);
+                        this.yOffset -= this.lineHeight;
+                        this.currentTagColorIndex -= 1;
+                    }
+                }
+        
                 this.linksMap.delete(linkKey);
             });
         }
@@ -277,5 +472,38 @@ export class LinkManager {
         // Apply scaling and panning to calculate the actual position.
         return { x: linkX * scale + panX, y: linkY * scale + panY };
     }
-        
+
+    private calculateNormal(sourceX: number, sourceY: number, targetX: number, targetY: number): { nx: number; ny: number; } {
+        // Calculate the direction vector D
+        const dx = targetX - sourceX;
+        const dy = targetY - sourceY;
+    
+        // Calculate the normal vector N by rotating D by 90 degrees
+        let nx = -dy;
+        let ny = dx;
+    
+        // Normalize the normal vector to get a unit vector
+        const length = Math.sqrt(nx * nx + ny * ny);
+        nx /= length; // Normalize the x component
+        ny /= length; // Normalize the y component
+    
+
+        return { nx, ny };
+    }
+       
+    private calculateParallel(sourceX: number, sourceY: number, targetX: number, targetY: number): { px: number; py: number; } {
+        // Calculate the direction vector D from source to target
+        const dx = targetX - sourceX;
+        const dy = targetY - sourceY;
+    
+        // No need to rotate the vector for a parallel vector
+    
+        // Normalize the direction vector to get a unit vector
+        const length = Math.sqrt(dx * dx + dy * dy);
+        const px = dx / length; // Normalize the x component
+        const py = dy / length; // Normalize the y component
+    
+        return { px, py };
+    }
+    
 }
