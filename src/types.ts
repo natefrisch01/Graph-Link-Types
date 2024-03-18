@@ -21,11 +21,13 @@ export interface ObsidianLink {
         id: string;
         x: number;
         y: number;
+        weight: number;
     };
     target: {
         id: string;
         x: number;
         y: number;
+        weight: number;
     };
 }
 
@@ -50,4 +52,11 @@ export interface GltLink {
     pairStatus: LinkPair;
     pixiText: Text | null;
     pixiGraphics: Graphics | null;
+}
+
+export interface GltLegendGraphic {
+    color: number;
+    legendText: Text;
+    legendGraphics: Graphics;
+    nUsing: number;
 }

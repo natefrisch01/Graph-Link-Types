@@ -5,10 +5,14 @@ import { LinkManager } from 'src/linkManager';
 
 export interface GraphLinkTypesPluginSettings {
     tagColors: boolean;
+    tagNames: boolean;
+    tagLegend: boolean;
 }
 
 const DEFAULT_SETTINGS: GraphLinkTypesPluginSettings = {
-    tagColors: false // By default, the feature is enabled
+    tagColors: false, // By default, the feature is enabled
+    tagNames: true,
+    tagLegend: true,
 };
 
 class GraphLinkTypesSettingTab extends PluginSettingTab {
@@ -22,21 +26,43 @@ class GraphLinkTypesSettingTab extends PluginSettingTab {
     display(): void {
         const {containerEl} = this;
         containerEl.empty();
-
+    
+        new Setting(containerEl)
+            .setName('Type Names')
+            .setDesc('Toggle to enable or disable link type names in the graph view.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.tagNames)
+                .onChange(async (value) => {
+                    this.plugin.settings.tagNames = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.startUpdateLoop();
+                }));
+    
         new Setting(containerEl)
             .setName('Type Colors')
-            .setDesc('Toggle to enable or disable link type colors.')
+            .setDesc('Toggle to enable or disable link type colors in the graph view.')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.tagColors)
                 .onChange(async (value) => {
                     this.plugin.settings.tagColors = value;
                     await this.plugin.saveSettings();
-                    // if (value = true) {
-                    //     this.plugin.linkManager.tagColors.clear();
-                    // }
+                    this.plugin.startUpdateLoop();
+                }));
+    
+        // Define the nested setting for the legend
+        new Setting(containerEl)
+            .setName('Show Legend')
+            .setDesc('Toggle to show or hide the legend for link type colors in the graph view.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.tagLegend)
+                .onChange(async (value) => {
+                    this.plugin.settings.tagLegend = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.startUpdateLoop();
                 }));
     }
 }
+
 
 export default class GraphLinkTypesPlugin extends Plugin {
     
@@ -185,10 +211,10 @@ export default class GraphLinkTypesPlugin extends Plugin {
             if (updateMap) {
                 const key = this.linkManager.generateKey(link.source.id, link.target.id);
                 if (!this.linkManager.linksMap.has(key)) {
-                    this.linkManager.addLink(renderer, link, this.settings.tagColors);
+                    this.linkManager.addLink(renderer, link, this.settings.tagColors, this.settings.tagLegend);
                 }
             }
-            this.linkManager.updateLinkText(renderer, link);
+            this.linkManager.updateLinkText(renderer, link, this.settings.tagNames);
             if (this.settings.tagColors) {
                 this.linkManager.updateLinkGraphics(renderer, link);
             }
