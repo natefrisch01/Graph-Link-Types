@@ -6,9 +6,6 @@
 	"description": "Link types for graph view.",
 	"author": "natefrisch01",
 	"authorUrl": "https://natesnote.com",
-	"fundingUrl": {
-	    "Buy Me a Coffee": "https://www.buymeacoffee.com/natefrisch",
-	    "Paypal": "https://www.paypal.com/donate/?business=9NUQ4SHG8EECC&no_recurring=0&currency_code=USD"
-    }
+	"fundingUrl": "https://www.buymeacoffee.com/natefrisch",
 	"isDesktopOnly": false
 }
