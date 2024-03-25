@@ -8,7 +8,7 @@
 	"authorUrl": "https://natesnote.com",
 	"fundingUrl": {
 	    "Buy Me a Coffee": "https://www.buymeacoffee.com/natefrisch",
-	    "Paypal": "https://www.paypal.com/donate/?business=9NUQ4SHG8EECC&no_recurring=0&item_name=Whether+it%27s+through+programming%2C+writing%2C+or+any+form+of+creative+expression%2C+my+goal+is+to+meaningfully+enrich+others.&currency_code=USD",
+	    "Paypal": "https://www.paypal.com/donate/?business=9NUQ4SHG8EECC&no_recurring=0&currency_code=USD"
     }
 	"isDesktopOnly": false
 }
