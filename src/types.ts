@@ -22,12 +22,18 @@ export interface ObsidianLink {
         x: number;
         y: number;
         weight: number;
+        text: {
+            alpha: number;
+        }
     };
     target: {
         id: string;
         x: number;
         y: number;
         weight: number;
+        text: {
+            alpha: number;
+        }
     };
 }
 

@@ -116,6 +116,7 @@ export class LinkManager {
             pixiText: this.initializeLinkText(renderer, obLink, pairStatus),
             pixiGraphics: tagColors ? this.initializeLinkGraphics(renderer, obLink, tagLegend) : null,
         };
+        console.log(obLink);
 
         this.linksMap.set(key, newLink);
 
@@ -200,10 +201,10 @@ export class LinkManager {
             return;
         }
         const linkKey = this.generateKey(link.source.id, link.target.id);
-        const obsLink = this.linksMap.get(linkKey);
+        const gltLink = this.linksMap.get(linkKey);
         let text;
-        if (obsLink) {
-            text = obsLink.pixiText;
+        if (gltLink) {
+            text = gltLink.pixiText;
         } else {
             return
         };
@@ -220,7 +221,11 @@ export class LinkManager {
             text.scale.set(1 / (3 * renderer.nodeScale));
             text.style.fill = this.textColor;
             if (tagNames) {
-                text.alpha = 0.9;
+                if (!link.source || !link.target || !link.source.text || !link.target.text || !link.target.text.alpha || !link.source.text.alpha) {
+                    text.alpha = 0.9;
+                } else {
+                    text.alpha = Math.max(link.source.text.alpha, link.target.text.alpha);
+                }
             } else {
                 text.alpha = 0.0;
             }
