@@ -1,6 +1,6 @@
 {
 	"name": "graph-link-types",
-	"version": "0.1.2",
+	"version": "0.3.2",
 	"description": "Link types for Obsidian graph view.",
 	"main": "main.js",
 	"scripts": {
