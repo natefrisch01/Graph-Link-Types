@@ -425,6 +425,10 @@ export class LinkManager {
         if (!sourcePage) return null;
 
         for (const [key, value] of Object.entries(sourcePage)) {
+			// Skip empty values 
+			if (value === null || value === undefined || value === '') {
+            	continue;
+        	}
             const valueType = this.determineDataviewLinkType(value);
 
             switch (valueType) {
