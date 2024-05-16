@@ -116,7 +116,6 @@ export class LinkManager {
             pixiText: this.initializeLinkText(renderer, obLink, pairStatus),
             pixiGraphics: tagColors ? this.initializeLinkGraphics(renderer, obLink, tagLegend) : null,
         };
-        console.log(obLink);
 
         this.linksMap.set(key, newLink);
 
