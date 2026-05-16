@@ -37,15 +37,6 @@ export interface ObsidianLink {
     };
 }
 
-// Define the enum outside the class
-export enum DataviewLinkType {
-    WikiLink,
-    MarkdownLink,
-    String,
-    Array,
-    Other
-}
-
 // Define a numeric enum for link statuses
 export enum LinkPair {
     None,

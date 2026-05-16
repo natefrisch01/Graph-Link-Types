@@ -1,5 +1,6 @@
 
-import { ObsidianRenderer, ObsidianLink, LinkPair, GltLink, DataviewLinkType , GltLegendGraphic} from 'src/types';
+import { getLinkpath, normalizePath } from 'obsidian';
+import { ObsidianRenderer, ObsidianLink, LinkPair, GltLink, GltLegendGraphic} from 'src/types';
 
 import { Text, TextStyle , Graphics, Color}  from 'pixi.js';
 // @ts-ignore
@@ -60,20 +61,22 @@ export class LinkManager {
         let lastTheme = '';
         let lastStyleSheetHref = '';
         let debounceTimer: number;
+
+        const updateThemeColors = () => {
+            this.currentTheme = document.body.classList.contains('theme-dark') ? 'theme-dark' : 'theme-light';
+            const currentStyleSheetHref = document.querySelector('link[rel="stylesheet"][href*="theme"]')?.getAttribute('href') ?? '';
+            if ((this.currentTheme && this.currentTheme !== lastTheme) || (currentStyleSheetHref !== lastStyleSheetHref)) {
+                this.textColor = this.getComputedColorFromClass(this.currentTheme, '--text-normal');
+                lastTheme = this.currentTheme;
+                lastStyleSheetHref = currentStyleSheetHref;
+            }
+        };
+
+        updateThemeColors();
     
         const themeObserver = new MutationObserver(() => {
             clearTimeout(debounceTimer);
-            debounceTimer = window.setTimeout(() => {
-                this.currentTheme = document.body.classList.contains('theme-dark') ? 'theme-dark' : 'theme-light';
-                const currentStyleSheetHref = document.querySelector('link[rel="stylesheet"][href*="theme"]')?.getAttribute('href');
-                if ((this.currentTheme && this.currentTheme !== lastTheme) || (currentStyleSheetHref !== lastStyleSheetHref)) {
-                    this.textColor = this.getComputedColorFromClass(this.currentTheme, '--text-normal');
-                    lastTheme = this.currentTheme;
-                    if (currentStyleSheetHref) {
-                        lastStyleSheetHref = currentStyleSheetHref;
-                    }
-                }
-            }, 100); // Debounce delay
+            debounceTimer = window.setTimeout(updateThemeColors, 100);
         });
     
         themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -176,7 +179,11 @@ export class LinkManager {
     }
 
     removeLinks(renderer: ObsidianRenderer, currentLinks: ObsidianLink[]): void {
-        const currentKeys = new Set(currentLinks.map(link => this.generateKey(link.source.id, link.target.id)));
+        const currentKeys = new Set(
+            currentLinks
+                .filter((link): link is ObsidianLink => Boolean(link?.source?.id && link?.target?.id))
+                .map(link => this.generateKey(link.source.id, link.target.id))
+        );
         // remove any links in our map that aren't in this list
         this.linksMap.forEach((_, key) => {
             if (!currentKeys.has(key)) {
@@ -363,7 +370,7 @@ export class LinkManager {
                     color: color,
                     legendText: textL,
                     legendGraphics: graphicsL,
-                    nUsing: 0,
+                    nUsing: 1,
                 };
 
                 this.tagColors.set(linkString, newLegendGraphic);
@@ -392,28 +399,6 @@ export class LinkManager {
         return graphics
     }
 
-    // Utility function to extract the file path from a Markdown link
-    private extractPathFromMarkdownLink(markdownLink: string | unknown): string {
-        const links = extractLinks(markdownLink).links;
-        // The package returns an array of links. Assuming you want the first link.
-        return links.length > 0 ? links[0] : '';
-    }
-
-    // Method to determine the type of a value, now a class method
-    private determineDataviewLinkType(value: any): DataviewLinkType {
-        if (typeof value === 'object' && value !== null && 'path' in value) {
-            return DataviewLinkType.WikiLink;
-        } else if (typeof value === 'string' && value.includes('](')) {
-            return DataviewLinkType.MarkdownLink;
-        } else if (typeof value === 'string') {
-            return DataviewLinkType.String;
-        } else if (Array.isArray(value)) {
-            return DataviewLinkType.Array;
-        } else {
-            return DataviewLinkType.Other;
-        }
-    }
-
     // Remove all text nodes from the graph
     destroyMap(renderer: ObsidianRenderer): void {
         if (this.linksMap.size > 0) {
@@ -429,42 +414,103 @@ export class LinkManager {
         if (!sourcePage) return null;
 
         for (const [key, value] of Object.entries(sourcePage)) {
-			// Skip empty values 
-			if (value === null || value === undefined || value === '') {
-            	continue;
-        	}
-            const valueType = this.determineDataviewLinkType(value);
+            if (value === null || value === undefined || value === '') {
+                continue;
+            }
 
-            switch (valueType) {
-                case DataviewLinkType.WikiLink:
-                    // @ts-ignore
-                    if (value.path === targetId) {
-                        return key;
-                    }
-                    break;
-                case DataviewLinkType.MarkdownLink:
-                    if (this.extractPathFromMarkdownLink(value) === targetId) {
-                        return key;
-                    }
-                    break;
-                case DataviewLinkType.Array:
-                    // @ts-ignore
-                    for (const item of value) {
-                        if (this.determineDataviewLinkType(item) === DataviewLinkType.WikiLink && item.path === targetId) {
-                            return key;
-                        }
-                        if (this.determineDataviewLinkType(item) === DataviewLinkType.MarkdownLink && this.extractPathFromMarkdownLink(item) === targetId) {
-                            return key;
-                        }
-                    }
-                    break;
-                default:
-				    // We will continue to check other DataView properties
-				    break;
+            if (this.valueContainsTarget(value, sourceId, targetId)) {
+                return key;
             }
         }
-        // If no DataView properties match, we consider that metadata key does not exist
+
         return null;
+    }
+
+    private valueContainsTarget(value: any, sourceId: string, targetId: string): boolean {
+        if (this.isArrayLike(value)) {
+            return Array.from(value as Iterable<any>).some(item => this.valueContainsTarget(item, sourceId, targetId));
+        }
+
+        if (this.isDataviewLink(value)) {
+            const candidates = new Set<string>();
+            candidates.add(value.path);
+
+            if (typeof value.obsidianLink === 'function') {
+                candidates.add(value.obsidianLink());
+            }
+
+            if (typeof value.fileName === 'function') {
+                candidates.add(value.fileName());
+            }
+
+            return Array.from(candidates).some(candidate => this.linkPathMatchesTarget(candidate, sourceId, targetId));
+        }
+
+        if (typeof value === 'string') {
+            return this.extractLinkPathsFromString(value)
+                .some(candidate => this.linkPathMatchesTarget(candidate, sourceId, targetId));
+        }
+
+        return false;
+    }
+
+    private isArrayLike(value: any): boolean {
+        return Array.isArray(value) || Boolean(this.api?.isArray?.(value));
+    }
+
+    private isDataviewLink(value: any): value is {
+        path: string;
+        obsidianLink?: () => string;
+        fileName?: () => string;
+    } {
+        return typeof value === 'object'
+            && value !== null
+            && typeof value.path === 'string';
+    }
+
+    private extractLinkPathsFromString(value: string): string[] {
+        const paths = new Set<string>();
+
+        try {
+            for (const path of extractLinks(value).links) {
+                paths.add(path);
+            }
+        } catch {
+            // Keep checking wikilinks even if the markdown parser rejects this value.
+        }
+
+        const wikiLinkPattern = /!?\[\[([^\]]+)\]\]/g;
+        let wikiLinkMatch: RegExpExecArray | null;
+        while ((wikiLinkMatch = wikiLinkPattern.exec(value)) !== null) {
+            paths.add(wikiLinkMatch[1]);
+        }
+
+        return Array.from(paths);
+    }
+
+    private linkPathMatchesTarget(rawLinkPath: string, sourceId: string, targetId: string): boolean {
+        const candidate = this.normalizeLinkPath(rawLinkPath);
+        const normalizedTarget = normalizePath(targetId);
+
+        if (candidate === normalizedTarget || `${candidate}.md` === normalizedTarget) {
+            return true;
+        }
+
+        const resolvedFile = this.api?.app?.metadataCache?.getFirstLinkpathDest(candidate, sourceId);
+        return resolvedFile?.path === normalizedTarget;
+    }
+
+    private normalizeLinkPath(rawLinkPath: string): string {
+        const withoutAlias = rawLinkPath.split('|', 1)[0];
+        let decoded = withoutAlias;
+
+        try {
+            decoded = decodeURIComponent(withoutAlias);
+        } catch {
+            // Keep the original value if it contains malformed percent encoding.
+        }
+
+        return normalizePath(getLinkpath(decoded.trim()));
     }
 
     // Function to calculate the coordinates for placing the link text.

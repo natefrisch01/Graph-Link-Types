@@ -89,18 +89,17 @@ export default class GraphLinkTypesPlugin extends Plugin {
             this.registerEvent(this.app.metadataCache.on("dataview:api-ready", () => {
                 this.api = getAPI();
                 this.linkManager.api = this.api;
+                this.indexReady = Boolean(this.api?.index?.initialized);
                 this.initEventHandlers();
-                // Only start rendering if a graph view is already open.
-                // Otherwise layout-change handler picks it up when one opens.
-                if (this.currentRenderer) {
-                    this.startUpdateLoop();
-                }
+                void this.handleLayoutChange();
             }));
             return;
         }
 
         this.linkManager.api = this.api;
+        this.indexReady = Boolean(this.api.index?.initialized);
         this.initEventHandlers();
+        await this.handleLayoutChange();
     }
 
     private initEventHandlers(): void {
@@ -119,6 +118,14 @@ export default class GraphLinkTypesPlugin extends Plugin {
             if (this.indexReady) {
                 this.handleLayoutChange();
             }
+        }));
+
+        this.registerEvent(this.app.metadataCache.on('resolved', () => {
+            this.handleLayoutChange();
+        }));
+
+        this.registerEvent(this.app.vault.on('rename', () => {
+            this.handleLayoutChange();
         }));
     }
 
