@@ -1,121 +1,128 @@
+import { ObsidianRenderer, ObsidianLink, LinkPair, GltLink, DataviewLinkType, GltLegendGraphic } from 'src/types';
 
-import { ObsidianRenderer, ObsidianLink, LinkPair, GltLink, DataviewLinkType , GltLegendGraphic} from 'src/types';
-
-import { Text, TextStyle , Graphics, Color}  from 'pixi.js';
+import { Text, TextStyle, Graphics } from 'pixi.js';
 // @ts-ignore
 import extractLinks from 'markdown-link-extractor';
 
+type RelationshipDirectionOverride = 'default' | 'none' | 'both';
+
+interface ParsedRelationshipKey {
+    label: string;
+    direction: RelationshipDirectionOverride;
+}
 
 export class LinkManager {
     linksMap: Map<string, GltLink>;
     api: any = null;
-    currentTheme : string;
-    textColor : string;
+    currentTheme: string;
+    textColor: string;
     tagColors: Map<string, GltLegendGraphic>;
+
     categoricalColors: number[] = [
-        0xF44336, // Red
-        0x03A9F4, // Light Blue
-        0xFF9800, // Orange
-        0x9C27B0, // Purple
-        0xCDDC39, // Lime
-        0x3F51B5, // Indigo
-        0xFFC107, // Amber
-        0x00BCD4, // Cyan
-        0xE91E63, // Pink
-        0x4CAF50, // Green
-        0xFF5722, // Deep Orange
-        0x673AB7, // Deep Purple
-        0x9E9E9E, // Grey
-        0x2196F3, // Blue
-        0x8BC34A, // Light Green
-        0x795548, // Brown
-        0x009688, // Teal
-        0x607D8B, // Blue Grey
-        0xFFEB3B, // Yellow
-        0x000000  // Black for contrast
-    ]
+        0xF44336,
+        0x03A9F4,
+        0xFF9800,
+        0x9C27B0,
+        0xCDDC39,
+        0x3F51B5,
+        0xFFC107,
+        0x00BCD4,
+        0xE91E63,
+        0x4CAF50,
+        0xFF5722,
+        0x673AB7,
+        0x9E9E9E,
+        0x2196F3,
+        0x8BC34A,
+        0x795548,
+        0x009688,
+        0x607D8B,
+        0xFFEB3B,
+        0x000000
+    ];
 
-      
-      currentTagColorIndex = 0;
-      yOffset = 5; // To increment the y position for each legend item
-      xOffset = 20;
-      lineHeight = 17; // Height of each line in the legend
-      lineLength = 40; // Width of the color line
-      spaceBetweenTextAndLine = 1; // Space between the text and the start of the line
-
+    currentTagColorIndex = 0;
+    yOffset = 5;
+    xOffset = 20;
+    lineHeight = 17;
+    lineLength = 40;
+    spaceBetweenTextAndLine = 1;
 
     constructor() {
         this.linksMap = new Map<string, GltLink>();
         this.tagColors = new Map<string, GltLegendGraphic>();
+        this.textColor = document.body.classList.contains('theme-dark') ? '#b3b3b3' : '#5c5c5c';
+        this.currentTheme = document.body.classList.contains('theme-dark') ? 'theme-dark' : 'theme-light';
 
-        // Detect changes to the theme.
         this.detectThemeChange();
     }
 
     generateKey(sourceId: string, targetId: string): string {
         return `${sourceId}-${targetId}`;
     }
-    
+
     private detectThemeChange(): void {
         let lastTheme = '';
         let lastStyleSheetHref = '';
         let debounceTimer: number;
-    
+
         const themeObserver = new MutationObserver(() => {
             clearTimeout(debounceTimer);
             debounceTimer = window.setTimeout(() => {
                 this.currentTheme = document.body.classList.contains('theme-dark') ? 'theme-dark' : 'theme-light';
                 const currentStyleSheetHref = document.querySelector('link[rel="stylesheet"][href*="theme"]')?.getAttribute('href');
+
                 if ((this.currentTheme && this.currentTheme !== lastTheme) || (currentStyleSheetHref !== lastStyleSheetHref)) {
                     this.textColor = this.getComputedColorFromClass(this.currentTheme, '--text-normal');
                     lastTheme = this.currentTheme;
+
                     if (currentStyleSheetHref) {
                         lastStyleSheetHref = currentStyleSheetHref;
                     }
                 }
-            }, 100); // Debounce delay
+            }, 100);
         });
-    
+
         themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
         themeObserver.observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
     }
-    
-    private getComputedColorFromClass(className : string, cssVariable : string) : string {
-        // Create a temporary element
+
+    private getComputedColorFromClass(className: string, cssVariable: string): string {
         const tempElement = document.createElement('div');
-    
-        // Apply the class to the temporary element
+
         tempElement.classList.add(className);
         document.body.appendChild(tempElement);
-    
-        // Get the computed style of the temporary element
+
         const style = getComputedStyle(tempElement);
         const colorValue = style.getPropertyValue(cssVariable).trim();
-    
-        // Remove the temporary element
+
         document.body.removeChild(tempElement);
 
-        // Check if the color is in HSL format
         if (colorValue.startsWith('hsl')) {
-            // Return a default color based on some condition, e.g., current theme
-            // This is a placeholder condition
             return document.body.classList.contains('theme-dark') ? '#b3b3b3' : '#5c5c5c';
-        } else {
-            // If it's not HSL, return the color as-is
-            return colorValue;
         }
+
+        return colorValue;
     }
 
     addLink(renderer: ObsidianRenderer, obLink: ObsidianLink, tagColors: boolean, tagLegend: boolean): void {
         const key = this.generateKey(obLink.source.id, obLink.target.id);
         const reverseKey = this.generateKey(obLink.target.id, obLink.source.id);
-        const pairStatus = (obLink.source.id !== obLink.target.id) && this.linksMap.has(reverseKey) ? LinkPair.Second : LinkPair.None;
+
+        const pairStatus =
+            (obLink.source.id !== obLink.target.id) && this.linksMap.has(reverseKey)
+                ? LinkPair.Second
+                : LinkPair.None;
+
         const newLink: GltLink = {
             obsidianLink: obLink,
             pairStatus: pairStatus,
             pixiText: this.initializeLinkText(renderer, obLink, pairStatus),
             pixiGraphics: tagColors ? this.initializeLinkGraphics(renderer, obLink, tagLegend) : null,
         };
+
+        // Dev extension without requiring src/types.ts changes yet.
+        (newLink as any).pixiArrow = this.initializeLinkDirection(renderer, obLink);
 
         this.linksMap.set(key, newLink);
 
@@ -132,37 +139,50 @@ export class LinkManager {
         const reverseKey = this.generateKey(link.target.id, link.source.id);
 
         const gltLink = this.linksMap.get(key);
-        
-        if (gltLink && gltLink.pixiText && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(gltLink.pixiText)) {
+
+        if (gltLink && gltLink.pixiText && renderer.px?.stage?.children?.includes(gltLink.pixiText)) {
             renderer.px.stage.removeChild(gltLink.pixiText);
             gltLink.pixiText.destroy();
         }
 
-        if (gltLink && gltLink.pixiGraphics && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(gltLink.pixiGraphics)) {
+        if (gltLink && gltLink.pixiGraphics && renderer.px?.stage?.children?.includes(gltLink.pixiGraphics)) {
             renderer.px.stage.removeChild(gltLink.pixiGraphics);
             gltLink.pixiGraphics.destroy();
         }
 
-        let colorKey = gltLink?.pixiText?.text?.replace(/\r?\n/g, "");
-        if (colorKey) {
-            if (this.tagColors.has(colorKey)) {
-                const legendGraphic = this.tagColors.get(colorKey);
-                if (legendGraphic) {
-                    legendGraphic.nUsing -= 1;
-                    if (legendGraphic.nUsing < 1) {
-                        this.yOffset -= this.lineHeight;
-                        this.currentTagColorIndex -= 1;
-                        if (this.currentTagColorIndex < 0) this.currentTagColorIndex = this.categoricalColors.length - 1;
-                        if (legendGraphic.legendText && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(legendGraphic.legendText)) {
-                            renderer.px.stage.removeChild(legendGraphic.legendText);
-                            legendGraphic.legendText.destroy();
-                        }
-                        if (legendGraphic.legendGraphics && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(legendGraphic.legendGraphics)) {
-                            renderer.px.stage.removeChild(legendGraphic.legendGraphics);
-                            legendGraphic.legendGraphics.destroy();
-                        }
-                        this.tagColors.delete(colorKey);
+        const arrow = (gltLink as any)?.pixiArrow as Graphics | null;
+        if (arrow && renderer.px?.stage?.children?.includes(arrow)) {
+            renderer.px.stage.removeChild(arrow);
+            arrow.destroy();
+        }
+
+        const colorKey = gltLink?.pixiText?.text?.replace(/\r?\n/g, '');
+
+        if (colorKey && this.tagColors.has(colorKey)) {
+            const legendGraphic = this.tagColors.get(colorKey);
+
+            if (legendGraphic) {
+                legendGraphic.nUsing -= 1;
+
+                if (legendGraphic.nUsing < 1) {
+                    this.yOffset -= this.lineHeight;
+                    this.currentTagColorIndex -= 1;
+
+                    if (this.currentTagColorIndex < 0) {
+                        this.currentTagColorIndex = this.categoricalColors.length - 1;
                     }
+
+                    if (legendGraphic.legendText && renderer.px?.stage?.children?.includes(legendGraphic.legendText)) {
+                        renderer.px.stage.removeChild(legendGraphic.legendText);
+                        legendGraphic.legendText.destroy();
+                    }
+
+                    if (legendGraphic.legendGraphics && renderer.px?.stage?.children?.includes(legendGraphic.legendGraphics)) {
+                        renderer.px.stage.removeChild(legendGraphic.legendGraphics);
+                        legendGraphic.legendGraphics.destroy();
+                    }
+
+                    this.tagColors.delete(colorKey);
                 }
             }
         }
@@ -176,8 +196,12 @@ export class LinkManager {
     }
 
     removeLinks(renderer: ObsidianRenderer, currentLinks: ObsidianLink[]): void {
-        const currentKeys = new Set(currentLinks.map(link => this.generateKey(link.source.id, link.target.id)));
-        // remove any links in our map that aren't in this list
+        const currentKeys = new Set(
+            currentLinks
+                .filter(link => link && link.source && link.target)
+                .map(link => this.generateKey(link.source.id, link.target.id))
+        );
+
         this.linksMap.forEach((_, key) => {
             if (!currentKeys.has(key)) {
                 const link = this.linksMap.get(key);
@@ -193,213 +217,387 @@ export class LinkManager {
         return link ? link.pairStatus : LinkPair.None;
     }
 
-    // Update the position of the text on the graph
     updateLinkText(renderer: ObsidianRenderer, link: ObsidianLink, tagNames: boolean): void {
         if (!renderer || !link || !link.source || !link.target) {
-            // If any of these are null, exit the function
             return;
         }
+
         const linkKey = this.generateKey(link.source.id, link.target.id);
         const gltLink = this.linksMap.get(linkKey);
-        let text;
-        if (gltLink) {
-            text = gltLink.pixiText;
-        } else {
-            return
-        };
 
-        // Calculate the mid-point of the link
-        const midX: number = (link.source.x + link.target.x) / 2;
-        const midY: number = (link.source.y + link.target.y) / 2;
-        // Transform the mid-point coordinates based on the renderer's pan and scale
-        const { x, y } = this.getLinkToTextCoordinates(midX, midY, renderer.panX, renderer.panY, renderer.scale);
-        if (text && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(text)) {
-            // Set the position and scale of the text
+        if (!gltLink) {
+            return;
+        }
+
+        const text = gltLink.pixiText;
+
+        const midX = (link.source.x + link.target.x) / 2;
+        const midY = (link.source.y + link.target.y) / 2;
+
+        const { x, y } = this.getLinkToTextCoordinates(
+            midX,
+            midY,
+            renderer.panX,
+            renderer.panY,
+            renderer.scale
+        );
+
+        if (text && renderer.px?.stage?.children?.includes(text)) {
             text.x = x;
             text.y = y;
             text.scale.set(1 / (3 * renderer.nodeScale));
             text.style.fill = this.textColor;
+
             if (tagNames) {
-                if (!link.source || !link.target || !link.source.text || !link.target.text || !link.target.text.alpha || !link.source.text.alpha) {
-                    text.alpha = 0.9;
-                } else {
-                    text.alpha = Math.max(link.source.text.alpha, link.target.text.alpha);
-                }
+                text.alpha = this.getLinkAlpha(link);
             } else {
                 text.alpha = 0.0;
             }
         }
     }
 
-    // Update the position of the text on the graph
     updateLinkGraphics(renderer: ObsidianRenderer, link: ObsidianLink): void {
         if (!renderer || !link || !link.source || !link.target) {
-            // If any of these are null, exit the function
             return;
         }
+
         const linkKey = this.generateKey(link.source.id, link.target.id);
         const gltLink = this.linksMap.get(linkKey);
-        let graphics;
-        if (gltLink) {
-            graphics = gltLink.pixiGraphics;
-        } else {
-            return
-        };
-        let {nx, ny} = this.calculateNormal(link.source.x, link.source.y, link.target.x, link.target.y);
-        let {px, py} = this.calculateParallel(link.source.x, link.source.y, link.target.x, link.target.y);
-        
-        nx *= 1.5*Math.sqrt(renderer.scale);
-        ny *= 1.5*Math.sqrt(renderer.scale);
 
-        px *= 8*Math.sqrt(renderer.scale);
-        py *= 8*Math.sqrt(renderer.scale);
-  
+        if (!gltLink) {
+            return;
+        }
 
-        let { x:x1, y:y1 } = this.getLinkToTextCoordinates(link.source.x, link.source.y, renderer.panX, renderer.panY, renderer.scale);
-        let { x:x2, y:y2 } = this.getLinkToTextCoordinates(link.target.x, link.target.y, renderer.panX, renderer.panY, renderer.scale);
-        x1 += nx + (link.source.weight/36+1) * px;
-        x2 += nx - (link.target.weight/36+1) * px;
-        y1 += ny + (link.source.weight/36+1) * py;
-        y2 += ny - (link.target.weight/36+1) * py;
-      
+        const graphics = gltLink.pixiGraphics;
 
-        if (graphics && renderer.px && renderer.px.stage && renderer.px.stage.children && renderer.px.stage.children.includes(graphics)) {
+        if (!graphics) {
+            return;
+        }
+
+        let { nx, ny } = this.calculateNormal(link.source.x, link.source.y, link.target.x, link.target.y);
+        let { px, py } = this.calculateParallel(link.source.x, link.source.y, link.target.x, link.target.y);
+
+        nx *= 1.5 * Math.sqrt(renderer.scale);
+        ny *= 1.5 * Math.sqrt(renderer.scale);
+
+        px *= 8 * Math.sqrt(renderer.scale);
+        py *= 8 * Math.sqrt(renderer.scale);
+
+        let { x: x1, y: y1 } = this.getLinkToTextCoordinates(link.source.x, link.source.y, renderer.panX, renderer.panY, renderer.scale);
+        let { x: x2, y: y2 } = this.getLinkToTextCoordinates(link.target.x, link.target.y, renderer.panX, renderer.panY, renderer.scale);
+
+        x1 += nx + (link.source.weight / 36 + 1) * px;
+        x2 += nx - (link.target.weight / 36 + 1) * px;
+        y1 += ny + (link.source.weight / 36 + 1) * py;
+        y2 += ny - (link.target.weight / 36 + 1) * py;
+
+        if (renderer.px?.stage?.children?.includes(graphics)) {
             // @ts-ignore
             const color = graphics._lineStyle.color;
-            // Now, update the line whenever needed without creating a new graphics object each time
-            graphics.clear(); // Clear the previous drawing to prepare for the update
-            graphics.lineStyle(3/Math.sqrt(renderer.nodeScale), color); // Set the line style (width: 2px, color: black, alpha: 1)
-            graphics.alpha = .6;
-            graphics.moveTo(x1, y1); // Move to the starting point of the line (source node)
-            graphics.lineTo(x2, y2); // Draw the line to the ending point (target node)
+
+            graphics.clear();
+            graphics.lineStyle(3 / Math.sqrt(renderer.nodeScale), color);
+            graphics.alpha = 0.6;
+            graphics.moveTo(x1, y1);
+            graphics.lineTo(x2, y2);
         }
     }
 
-    // Create or update text for a given link
-    private initializeLinkText(renderer: ObsidianRenderer, link: ObsidianLink, pairStatus : LinkPair): Text | null{
+    updateLinkDirection(renderer: ObsidianRenderer, link: ObsidianLink, tagDirection: boolean): void {
+        if (!renderer || !link || !link.source || !link.target) {
+            return;
+        }
 
-        // Get the text to display for the link
+        const linkKey = this.generateKey(link.source.id, link.target.id);
+        const gltLink = this.linksMap.get(linkKey);
+
+        if (!gltLink) {
+            return;
+        }
+
+        const arrow = (gltLink as any).pixiArrow as Graphics | null;
+
+        if (!arrow) {
+            return;
+        }
+
+        const rawRelationshipName = this.getMetadataKeyForLink(link.source.id, link.target.id);
+
+        if (!rawRelationshipName) {
+            arrow.visible = false;
+            arrow.clear();
+            return;
+        }
+
+        const relationship = this.parseRelationshipKey(rawRelationshipName);
+
+        if (!tagDirection || relationship.direction === 'none' || link.source.id === link.target.id) {
+            arrow.visible = false;
+            arrow.clear();
+            return;
+        }
+
+        if (!renderer.px?.stage?.children?.includes(arrow)) {
+            renderer.px.stage.addChild(arrow);
+        }
+
+        arrow.visible = true;
+        arrow.clear();
+
+        const sourceX = link.source.x;
+        const sourceY = link.source.y;
+        const targetX = link.target.x;
+        const targetY = link.target.y;
+
+        const dx = targetX - sourceX;
+        const dy = targetY - sourceY;
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+        if (!Number.isFinite(length) || length < 0.001) {
+            arrow.visible = false;
+            return;
+        }
+
+        const fillColor = this.hexColorStringToNumber(this.textColor, 0xffffff);
+        const alpha = this.getLinkAlpha(link);
+
+        // Normal arrow: source -> target.
+        this.drawArrowHead(
+            arrow,
+            renderer,
+            sourceX,
+            sourceY,
+            targetX,
+            targetY,
+            0.80,
+            fillColor,
+            alpha
+        );
+
+        // Override: draw a second arrow target -> source.
+        if (relationship.direction === 'both') {
+            this.drawArrowHead(
+                arrow,
+                renderer,
+                targetX,
+                targetY,
+                sourceX,
+                sourceY,
+                0.80,
+                fillColor,
+                alpha
+            );
+        }
+
+        arrow.zIndex = 2;
+        arrow.alpha = 1;
+    }
+
+    private initializeLinkText(renderer: ObsidianRenderer, link: ObsidianLink, pairStatus: LinkPair): Text | null {
         let linkString: string | null = this.getMetadataKeyForLink(link.source.id, link.target.id);
+
         if (linkString === null) {
             return null;
-        } //doesn't add if link is null
+        }
+
+        const relationship = this.parseRelationshipKey(linkString);
+        linkString = relationship.label;
+
         if (link.source.id === link.target.id) {
-            linkString = "";
+            linkString = '';
         }
 
-        if (pairStatus === LinkPair.None) {
-
-        } else if (pairStatus === LinkPair.First) {
-            linkString = linkString + "\n\n";
+        if (pairStatus === LinkPair.First) {
+            linkString = linkString + '\n\n';
         } else if (pairStatus === LinkPair.Second) {
-            linkString = "\n\n" + linkString;
-        } else {
-
+            linkString = '\n\n' + linkString;
         }
 
-        // Define the style for the text
         const textStyle: TextStyle = new TextStyle({
             fontFamily: 'Arial',
             fontSize: 36,
             fill: this.textColor
         });
-        // Create new text node
+
         const text: Text = new Text(linkString, textStyle);
 
         text.zIndex = 1;
         text.anchor.set(0.5, 0.5);
 
-
-
-        this.updateLinkText(renderer, link, false);
         renderer.px.stage.addChild(text);
-        
-        return text
+
+        return text;
     }
 
-    // Create or update text for a given link
-    private initializeLinkGraphics(renderer: ObsidianRenderer, link: ObsidianLink, tagLegend: boolean): Graphics | null{
-
-        // Get the text to display for the link
+    private initializeLinkGraphics(renderer: ObsidianRenderer, link: ObsidianLink, tagLegend: boolean): Graphics | null {
         let linkString: string | null = this.getMetadataKeyForLink(link.source.id, link.target.id);
+
         if (linkString === null) {
             return null;
-        } //doesn't add if link is null
+        }
 
-        let color;
-        
+        const relationship = this.parseRelationshipKey(linkString);
+        linkString = relationship.label;
+
+        let color = 0xffffff;
+
         if (link.source.id === link.target.id) {
-            linkString = "";
+            linkString = '';
         } else {
-
-
-            if (!this.tagColors.has(linkString)) { // this tag is not in the map yet
+            if (!this.tagColors.has(linkString)) {
                 color = this.categoricalColors[this.currentTagColorIndex];
-
-                // Increment and wrap the index to cycle through colors
                 this.currentTagColorIndex = (this.currentTagColorIndex + 1) % this.categoricalColors.length;
 
-                // Create and add the label
-                const textL = new Text(linkString, { fontFamily: 'Arial', fontSize: 14, fill: this.textColor });
+                const textL = new Text(linkString, {
+                    fontFamily: 'Arial',
+                    fontSize: 14,
+                    fill: this.textColor
+                });
+
                 textL.x = this.xOffset;
                 textL.y = this.yOffset;
                 renderer.px.stage.addChild(textL);
 
-                    // Calculate the starting x-coordinate for the line, based on the text width
                 const lineStartX = this.xOffset + textL.width + this.spaceBetweenTextAndLine;
 
                 const graphicsL = new Graphics();
-                graphicsL.lineStyle(2, color, 1); // Assuming 'color' is in a PIXI-compatible format
-                graphicsL.moveTo(lineStartX, this.yOffset + (this.lineHeight / 2)); // Start a little below the text
-                graphicsL.lineTo(lineStartX + this.lineLength, this.yOffset + (this.lineHeight / 2)); // 40 pixels wide line
+                graphicsL.lineStyle(2, color, 1);
+                graphicsL.moveTo(lineStartX, this.yOffset + this.lineHeight / 2);
+                graphicsL.lineTo(lineStartX + this.lineLength, this.yOffset + this.lineHeight / 2);
                 renderer.px.stage.addChild(graphicsL);
+
                 this.yOffset += this.lineHeight;
 
                 if (!tagLegend) {
                     graphicsL.alpha = 0.0;
                     textL.alpha = 0.0;
                 }
+
                 const newLegendGraphic: GltLegendGraphic = {
                     color: color,
                     legendText: textL,
                     legendGraphics: graphicsL,
-                    nUsing: 0,
+                    nUsing: 1,
                 };
 
                 this.tagColors.set(linkString, newLegendGraphic);
-            } else {                              // this tag is in the map already
-                const legendGraphic = this.tagColors.get(linkString)
-                
+            } else {
+                const legendGraphic = this.tagColors.get(linkString);
+
                 if (legendGraphic) {
-                    color = legendGraphic?.color;
+                    color = legendGraphic.color;
                     legendGraphic.nUsing += 1;
-                } else {
-                    color = 0xFFFFFF;
                 }
             }
         }
 
-
         const graphics = new Graphics();
-        graphics.lineStyle(3/Math.sqrt(renderer.nodeScale), color)
+        graphics.lineStyle(3 / Math.sqrt(renderer.nodeScale), color);
         graphics.zIndex = 0;
-        renderer.px.stage.addChild(graphics); // Add the line to the stage
+        renderer.px.stage.addChild(graphics);
 
-
-        this.updateLinkGraphics(renderer, link);
-
-        
-        return graphics
+        return graphics;
     }
 
-    // Utility function to extract the file path from a Markdown link
+    private initializeLinkDirection(renderer: ObsidianRenderer, link: ObsidianLink): Graphics | null {
+        const linkString = this.getMetadataKeyForLink(link.source.id, link.target.id);
+
+        if (linkString === null || link.source.id === link.target.id) {
+            return null;
+        }
+
+        const arrow = new Graphics();
+        arrow.zIndex = 2;
+        arrow.visible = false;
+        renderer.px.stage.addChild(arrow);
+
+        return arrow;
+    }
+
+    private drawArrowHead(
+        graphics: Graphics,
+        renderer: ObsidianRenderer,
+        sourceX: number,
+        sourceY: number,
+        targetX: number,
+        targetY: number,
+        position: number,
+        fillColor: number,
+        alpha: number
+    ): void {
+        const dx = targetX - sourceX;
+        const dy = targetY - sourceY;
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+        if (!Number.isFinite(length) || length < 0.001) {
+            return;
+        }
+
+        const ux = dx / length;
+        const uy = dy / length;
+
+        const arrowWorldX = sourceX + dx * position;
+        const arrowWorldY = sourceY + dy * position;
+
+        const { x: tipX, y: tipY } = this.getLinkToTextCoordinates(
+            arrowWorldX,
+            arrowWorldY,
+            renderer.panX,
+            renderer.panY,
+            renderer.scale
+        );
+
+        const size = 10 / Math.sqrt(renderer.nodeScale);
+        const width = 6 / Math.sqrt(renderer.nodeScale);
+
+        const baseX = tipX - ux * size;
+        const baseY = tipY - uy * size;
+
+        const perpX = -uy;
+        const perpY = ux;
+
+        const leftX = baseX + perpX * width;
+        const leftY = baseY + perpY * width;
+
+        const rightX = baseX - perpX * width;
+        const rightY = baseY - perpY * width;
+
+        graphics.beginFill(fillColor, 0.9 * alpha);
+        graphics.moveTo(tipX, tipY);
+        graphics.lineTo(leftX, leftY);
+        graphics.lineTo(rightX, rightY);
+        graphics.lineTo(tipX, tipY);
+        graphics.endFill();
+    }
+
+    private parseRelationshipKey(rawKey: string): ParsedRelationshipKey {
+        const trimmed = rawKey.trim();
+
+        if (trimmed.endsWith('__none')) {
+            return {
+                label: trimmed.slice(0, -'__none'.length).trim(),
+                direction: 'none'
+            };
+        }
+
+        if (trimmed.endsWith('__both')) {
+            return {
+                label: trimmed.slice(0, -'__both'.length).trim(),
+                direction: 'both'
+            };
+        }
+
+        return {
+            label: trimmed,
+            direction: 'default'
+        };
+    }
+
     private extractPathFromMarkdownLink(markdownLink: string | unknown): string {
         const links = extractLinks(markdownLink).links;
-        // The package returns an array of links. Assuming you want the first link.
         return links.length > 0 ? links[0] : '';
     }
 
-    // Method to determine the type of a value, now a class method
     private determineDataviewLinkType(value: any): DataviewLinkType {
         if (typeof value === 'object' && value !== null && 'path' in value) {
             return DataviewLinkType.WikiLink;
@@ -414,25 +612,26 @@ export class LinkManager {
         }
     }
 
-    // Remove all text nodes from the graph
     destroyMap(renderer: ObsidianRenderer): void {
         if (this.linksMap.size > 0) {
-            this.linksMap.forEach((gltLink, linkKey) => {   
-                this.removeLink(renderer, gltLink.obsidianLink)   
+            Array.from(this.linksMap.values()).forEach((gltLink) => {
+                this.removeLink(renderer, gltLink.obsidianLink);
             });
         }
     }
 
-    // Get the metadata key for a link between two pages
     private getMetadataKeyForLink(sourceId: string, targetId: string): string | null {
         const sourcePage: any = this.api.page(sourceId);
-        if (!sourcePage) return null;
+
+        if (!sourcePage) {
+            return null;
+        }
 
         for (const [key, value] of Object.entries(sourcePage)) {
-			// Skip empty values 
-			if (value === null || value === undefined || value === '') {
-            	continue;
-        	}
+            if (value === null || value === undefined || value === '') {
+                continue;
+            }
+
             const valueType = this.determineDataviewLinkType(value);
 
             switch (valueType) {
@@ -442,68 +641,114 @@ export class LinkManager {
                         return key;
                     }
                     break;
+
                 case DataviewLinkType.MarkdownLink:
                     if (this.extractPathFromMarkdownLink(value) === targetId) {
                         return key;
                     }
                     break;
+
                 case DataviewLinkType.Array:
                     // @ts-ignore
                     for (const item of value) {
                         if (this.determineDataviewLinkType(item) === DataviewLinkType.WikiLink && item.path === targetId) {
                             return key;
                         }
+
                         if (this.determineDataviewLinkType(item) === DataviewLinkType.MarkdownLink && this.extractPathFromMarkdownLink(item) === targetId) {
                             return key;
                         }
                     }
                     break;
+
                 default:
-				    // We will continue to check other DataView properties
-				    break;
+                    break;
             }
         }
-        // If no DataView properties match, we consider that metadata key does not exist
+
         return null;
     }
 
-    // Function to calculate the coordinates for placing the link text.
-    private getLinkToTextCoordinates(linkX: number, linkY: number, panX: number, panY: number, scale: number): { x: number, y: number } {
-        // Apply scaling and panning to calculate the actual position.
-        return { x: linkX * scale + panX, y: linkY * scale + panY };
+    private getLinkToTextCoordinates(
+        linkX: number,
+        linkY: number,
+        panX: number,
+        panY: number,
+        scale: number
+    ): { x: number; y: number } {
+        return {
+            x: linkX * scale + panX,
+            y: linkY * scale + panY
+        };
     }
 
-    private calculateNormal(sourceX: number, sourceY: number, targetX: number, targetY: number): { nx: number; ny: number; } {
-        // Calculate the direction vector D
+    private calculateNormal(sourceX: number, sourceY: number, targetX: number, targetY: number): { nx: number; ny: number } {
         const dx = targetX - sourceX;
         const dy = targetY - sourceY;
-    
-        // Calculate the normal vector N by rotating D by 90 degrees
+
         let nx = -dy;
         let ny = dx;
-    
-        // Normalize the normal vector to get a unit vector
+
         const length = Math.sqrt(nx * nx + ny * ny);
-        nx /= length; // Normalize the x component
-        ny /= length; // Normalize the y component
-    
+
+        if (!Number.isFinite(length) || length < 0.001) {
+            return { nx: 0, ny: 0 };
+        }
+
+        nx /= length;
+        ny /= length;
 
         return { nx, ny };
     }
-       
-    private calculateParallel(sourceX: number, sourceY: number, targetX: number, targetY: number): { px: number; py: number; } {
-        // Calculate the direction vector D from source to target
+
+    private calculateParallel(sourceX: number, sourceY: number, targetX: number, targetY: number): { px: number; py: number } {
         const dx = targetX - sourceX;
         const dy = targetY - sourceY;
-    
-        // No need to rotate the vector for a parallel vector
-    
-        // Normalize the direction vector to get a unit vector
+
         const length = Math.sqrt(dx * dx + dy * dy);
-        const px = dx / length; // Normalize the x component
-        const py = dy / length; // Normalize the y component
-    
-        return { px, py };
+
+        if (!Number.isFinite(length) || length < 0.001) {
+            return { px: 0, py: 0 };
+        }
+
+        return {
+            px: dx / length,
+            py: dy / length
+        };
     }
-    
+
+    private getLinkAlpha(link: ObsidianLink): number {
+        if (!link.source?.text || !link.target?.text || !link.source.text.alpha || !link.target.text.alpha) {
+            return 0.9;
+        }
+
+        return Math.max(link.source.text.alpha, link.target.text.alpha);
+    }
+
+    private hexColorStringToNumber(color: string, fallback: number): number {
+        if (!color) {
+            return fallback;
+        }
+
+        const trimmed = color.trim();
+
+        if (trimmed.startsWith('#')) {
+            const parsed = Number.parseInt(trimmed.slice(1), 16);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        }
+
+        const rgbMatch = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+
+        if (rgbMatch) {
+            const r = Number.parseInt(rgbMatch[1], 10);
+            const g = Number.parseInt(rgbMatch[2], 10);
+            const b = Number.parseInt(rgbMatch[3], 10);
+
+            if ([r, g, b].every(n => Number.isFinite(n))) {
+                return (r << 16) + (g << 8) + b;
+            }
+        }
+
+        return fallback;
+    }
 }
